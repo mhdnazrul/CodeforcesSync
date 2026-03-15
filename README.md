@@ -1,98 +1,132 @@
 <div align="center">
   <img src="public/icons/icon128.png" alt="CodeforcesSync Logo" width="128" />
-  <h1>CodeforcesSync</h1>
-  <p><strong>Automatically sync your competitive programming solutions from Codeforces to GitHub in real-time!</strong></p>
+  <h1>CodeforcesSync 🚀</h1>
+  <p><strong>Automatically sync your accepted Codeforces solutions to GitHub in real-time.</strong></p>
+
+  <p>
+    <a href="https://github.com/mhdnazrul/CodeforcesSync/stargazers"><img src="https://img.shields.io/github/stars/mhdnazrul/CodeforcesSync?style=for-the-badge&color=yellow" alt="Stars Badge"/></a>
+    <a href="https://github.com/mhdnazrul/CodeforcesSync/network/members"><img src="https://img.shields.io/github/forks/mhdnazrul/CodeforcesSync?style=for-the-badge&color=orange" alt="Forks Badge"/></a>
+    <a href="https://github.com/mhdnazrul/CodeforcesSync/pulls"><img src="https://img.shields.io/github/issues-pr/mhdnazrul/CodeforcesSync?style=for-the-badge&color=blue" alt="Pull Requests Badge"/></a>
+    <a href="https://github.com/mhdnazrul/CodeforcesSync/issues"><img src="https://img.shields.io/github/issues/mhdnazrul/CodeforcesSync?style=for-the-badge&color=red" alt="Issues Badge"/></a>
+    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-success.svg?style=for-the-badge" alt="License Badge"/></a>
+  </p>
 </div>
 
----
+<hr />
 
-## 📖 Project Description
+## 📑 Table of Contents
+- [About The Project](#-about-the-project)
+- [Screenshots](#-screenshots)
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [How It Works](#-how-it-works)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage](#-usage)
+- [Project Structure](#-project-structure)
+- [Future Improvements](#-future-improvements)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-**CodeforcesSync** is a powerful Chrome Extension that seamlessly bridges your Codeforces competitive programming journey with your GitHub profile. 
+## 📌 About The Project
 
-Whenever you receive an "Accepted" verdict on Codeforces, this extension automatically detects the submission, extracts your source code, and directly pushes it to a chosen GitHub repository. It does this entirely in the background using the official GitHub API. 
+**CodeforcesSync** is a powerful Chrome Extension designed for competitive programmers. It seamlessly bridges your Codeforces journey with your GitHub profile. 
 
-**Smart Language Detection:** CodeforcesSync features advanced programming language detection logic. It parses exact language tags (like `GNU C++20`, `PyPy 3`, or `Java 11`) and maps them to accurate file extensions (`.cpp`, `.py`, `.java`, etc.), ensuring your GitHub repository remains perfectly organized and syntax-highlighted.
+Whenever you receive an **"Accepted"** verdict on Codeforces, this extension automatically detects the submission, extracts your source code, and directly pushes it to a chosen GitHub repository. It works entirely in the background using the official GitHub API, ensuring your coding profile stays up to date without any manual effort.
+
+## 📸 Screenshots
+
+> **Note:** Replace these placeholders with actual screenshots of your extension.
+
+<div align="center">
+  <img src="https://via.placeholder.com/800x400.png?text=Extension+Popup+Screenshot" alt="CodeforcesSync Popup" width="45%" />
+  <img src="https://via.placeholder.com/800x400.png?text=GitHub+Repository+Sync+Screenshot" alt="GitHub Repo Sync" width="45%" />
+</div>
 
 ## ✨ Features
 
-- **Automated Background Syncing**: No manual copying or committing required. If you solve it, it syncs.
-- **Real-time Streak Tracking**: Gamify your daily progress with an integrated solving streak tracker right inside the visual popup!
-- **Smart API Throttling**: Safely manages GitHub Secondary Rate limits and Codeforces scraping limits behind the scenes using asynchronous delays.
-- **Custom Subdirectories**: Want to store submissions in a `solutions/` folder? You can configure custom nested repository paths natively from the popup.
-- **Developer Debugging**: Comprehensive background logs and error tracking are piped directly into Chrome DevTools for painless monitoring.
+- ⚡ **Automated Background Syncing**: No manual copying or committing required. If you solve it, it syncs.
+- 🔥 **Real-time Streak Tracking**: Gamify your daily progress with an integrated solving streak tracker right inside the visual popup!
+- 🧠 **Smart Language Detection**: Parses exact language tags (e.g., `GNU C++20`, `PyPy 3`) and maps them to accurate file extensions (`.cpp`, `.py`, `.js`, etc.).
+- 🛡️ **Cloudflare Bot Bypass**: Intelligently utilizes your active Codeforces tab session to safely fetch code without triggering aggressive Cloudflare blockages.
+- 📁 **Custom Subdirectories**: Store submissions in a specific folder (like `solutions/`) by configuring custom repository paths natively from the popup.
+- ⏱️ **Smart API Throttling**: Safely manages GitHub Secondary Rate limits and Codeforces API limits behind the scenes using asynchronous delays.
+
+## 🛠 Tech Stack
+
+CodeforcesSync is built with modern web technologies:
+
+- **React 19** - Powerful User Interface layout
+- **TypeScript** - Type-safe programming
+- **Tailwind CSS v4** - Beautiful responsive styling
+- **Vite** - Lightning-fast frontend build tool
+- **Chrome Extension API (Manifest V3)** - Core extension functionality
+- **GitHub REST API** - Uploading files and committing code natively
+
+## ⚙️ How It Works
+
+1. **Polling**: The Service Worker (`background.ts`) relies on Chrome Alarms to silently poll the official Codeforces API (`user.status`) every minute.
+2. **Filtering**: It filters your recent submissions to find new **Accepted (OK)** verdicts that haven't been previously synced.
+3. **Fetching Code**: Instead of a basic `fetch` (which Cloudflare blocks), the extension securely injects a fetch execution script into your currently open Codeforces tab to safely extract the raw source code.
+4. **Pushing to GitHub**: The code is encoded in Base64 and automatically committed to your linked GitHub repository via the GitHub REST API.
 
 ---
 
-## 🚀 Installation
+## 🚀 Quick Start / Installation
 
-Because CodeforcesSync manages secure Personal Access Tokens (PAT), it is distributed directly via source.
+CodeforcesSync is distributed via source and Developer Mode in Chrome.
 
-### 1. Download the Project
-You can grab the source code by cloning the repository or downloading it.
-* **Option A:** Open your terminal and run:
-  ```bash
-  git clone https://github.com/mhdnazrul/extension-testing-repo.git
-  ```
-* **Option B:** Click **Code -> Download ZIP** on GitHub and extract the folder to a directory of your choice.
+### 1. Download the Extension
+Download the latest **Pre-built Release** ZIP file from the [Releases page](https://github.com/mhdnazrul/CodeforcesSync/releases) or build it manually from source.
 
-### 2. Build the Extension
-Ensure you have [Node.js](https://nodejs.org/) installed. Open a terminal inside the downloaded directory:
+**To build from source:**
 ```bash
+# Clone the repository
+git clone https://github.com/mhdnazrul/CodeforcesSync.git
+
+# Navigate into the project
+cd CodeforcesSync
+
+# Install dependencies
 npm install
+
+# Build the extension
 npm run build
 ```
-This generates a production-ready `dist/` folder containing the compiled Chrome Extension. 
+This generates a production-ready `dist/` folder containing the compiled Chrome Extension.
 
-### 3. Load into Chrome
-1. Open Google Chrome and navigate in the URL bar to: `chrome://extensions/`
-2. Enable **Developer mode** via the toggle switch in the top-right corner.
-3. Click the **"Load unpacked"** button in the top-left corner.
-4. Select the `dist` folder located inside your project directory (e.g., `C:\Users\username\Desktop\CodeforcesSync\CodeforcesSync\dist`).
-
-CodeforcesSync will successfully load! 
-
-*(Optional: Pin the extension to your toolbar by clicking the puzzle icon and hitting the pin!)*
+### 2. Load into Chrome
+1. Open Google Chrome and navigate to: `chrome://extensions/`
+2. Turn on **Developer mode** using the toggle switch in the top right corner.
+3. Click the **Load unpacked** button in the top left corner.
+4. Select the `dist` folder located inside your project directory (or the extracted `dist` folder from the Release ZIP).
+5. The extension is now installed! *(Optional: Pin it to your toolbar for easy access.)*
 
 ---
 
-## ⚙️ Setup Instructions (GitHub Target)
+## 🔧 Configuration
 
-The extension needs a place to store your code and the permissions to do so.
+To allow the extension to securely push code on your behalf, you need a standard GitHub Personal Access Token (PAT).
 
 ### Step 1: Create a GitHub Repository
-1. Go to GitHub and click the **+ (plus)** icon in the top right corner, then **"New repository"**.
-2. **Repository name**: Give it a clear name (e.g., `Codeforces-Solutions`).
-3. **Visibility**: Choose **Public** (recommended) or **Private**.
-4. Click **Create repository**.
+Create a new Public or Private repository on GitHub (e.g., `Codeforces-Solutions`).
 
-### Step 2: Generate a Personal Access Token (PAT)
-You must generate a secure token to allow the extension to push code. You can use either a **Classic Token** or a **Fine-grained Token**.
-
-#### Option A: Classic Token (Easier)
-1. Go to GitHub: **Settings** → **Developer Settings** → **Personal Access Tokens** → **Tokens (classic)**.
-2. Click **Generate new token (classic)**. Add a note like "CodeforcesSync Ext".
-3. Check the scope box for **`repo`** (Full control of private repositories).
+### Step 2: Generate a Personal Access Token
+1. Go to your GitHub **Settings** → **Developer Settings** → **Personal Access Tokens** → **Tokens (classic)**.
+2. Click **Generate new token (classic)**. Set the expiration date and give it a name.
+3. Check the **`repo`** scope box (Grants full control over private repositories).
 4. Click **Generate token** and **COPY it immediately**.
 
-#### Option B: Fine-grained Token (More Secure)
-1. Go to GitHub: **Settings** → **Developer Settings** → **Personal Access Tokens** → **Fine-grained tokens**.
-2. Click **Generate new token**. Add a name.
-3. Under **Repository access**, choose **Only select repositories** and pick the repository you just created in Step 1.
-4. Under **Permissions > Repository permissions**, assign the following:
-   * **Contents**: Read & Write
-   * **Commit statuses** *(optional)*: Read & Write
-5. Click **Generate token** and **COPY it immediately**.
-
-### Step 3: Configure the Extension
-1. Click the CodeforcesSync icon in your Chrome toolbar.
-2. Click the specific **Settings** gear icon.
-3. Fill in the absolute details:
-   * **GitHub Username**: `mhdnazrul`
-   * **Personal Access Token**: `ghp_your_secret_token_here_...`
-   * **Codeforces Handle**: `tourist`
-   * **Repo Name**: `Codeforces-Solutions`
-4. Click **Save**!
+### Step 3: Link the Extension
+1. Click the **CodeforcesSync icon** in your Chrome toolbar.
+2. Click the **Settings** gear icon.
+3. Fill in your details:
+   - **GitHub Username**
+   - **Personal Access Token**
+   - **Codeforces Handle** (e.g., `tourist`)
+   - **Repo Name** (e.g., `Codeforces-Solutions`)
+   - *(Optional)* Check **Use Subdirectory** and enter a folder name.
+4. Click **Save**.
 
 ---
 
@@ -100,74 +134,59 @@ You must generate a secure token to allow the extension to push code. You can us
 
 Once configured, the background service takes over!
 
-1. **Keep Codeforces Active**: You must leave a Codeforces tab permanently open in your browser while solving. The extension securely borrows your active Codeforces session cookie to silently fetch code without triggering aggressive Cloudflare Bot-Protection blockages.
+1. **Keep Codeforces Active**: You must leave a Codeforces tab completely open in your browser while solving. The extension securely borrows your active Codeforces session to bypass Cloudflare Bot-Protection blockages.
 2. **Solve Problems**: Submit solutions as normally as you would!
-3. **Automatic Syncing**: Once receiving an **"Accepted"** verdict, CodeforcesSync intercepts the submission, processes the source code locally, and pushes it up to your linked GitHub repository.
-4. **DevTools Logs**: To view real-time syncs, open `chrome://extensions`, locate CodeforcesSync, and click **"service worker"** to open Chrome DevTools. You will see precise console messages about detected languages, throttling wait times, and successful HTTP payload injections.
+3. **Automatic Syncing**: Once receiving an **"Accepted"** verdict, CodeforcesSync intercepts the submission, processes the source code locally, and pushes it up to your linked repository.
 
 ---
 
-## 📁 File Structure
+## 📁 Project Structure
 
-For users simply looking to use the extension, **the only folder that matters is the compiled `dist/` directory**.
+```text
+CodeforcesSync/
+├── public/                 # Static extension assets (icons, manifest)
+├── src/                    # Source code
+│   ├── background/         # Background Service Worker logic (API polling)
+│   ├── utils/              # Helper functions (storage, GitHub API mapping)
+│   ├── App.tsx             # Main React UI for the Extension Popup
+│   ├── main.tsx            # React entry point
+│   └── index.css           # Tailwind CSS styles
+├── package.json            # Node.js dependencies and scripts
+└── vite.config.ts          # Vite bundler configuration
+```
 
-For developers, here is a brief overview of the project architecture:
-* `manifest.json`: The core settings configuration defining Manifest V3 permissions, host scopes, and target asset mappings files.
-* `src/background/background.ts`: The central service-worker logic. Handles API calls, interval alarms, tab injections, and handles the logic loop.
-* `src/utils/githubAPI.ts`: Manages the REST endpoint pushing to GitHub.
-* `src/utils/languageMap.ts`: Our proprietary regex and array mapping utility to decipher languages (like `Clang++17 Diagnostics`) into file extensions (`.cpp`).
-* `src/App.tsx`: The stunning React UI powering the interactive Popup module!
-* `public/icons/`: Houses the 16x16, 48x48, and 128x128 official static icon badges.
+## 🔮 Future Improvements
 
----
-
-## 🔖 Versioning & Releases
-
-We follow semantic version tags. To distribute version-wise updates for this project:
-
-1. Update the `"version"` flag explicitly inside `manifest.json` and `package.json` (e.g., to `"1.1.0"`).
-2. Commit your code modifications: 
-   ```bash
-   git commit -am "Bump version 1.1.0: Added Python support"
-   ```
-3. Tag the target commit locally:
-   ```bash
-   git tag -a v1.1.0 -m "Release version 1.1.0"
-   ```
-4. Push both to the repository:
-   ```bash
-   git push origin main
-   git push origin v1.1.0
-   ```
-5. On the GitHub Repo webpage, go to **Releases** → **Draft a new release**. Select your newly pushed tag. 
-6. **PRO TIP:** Run `npm run build`, zip the `dist/` folder into `dist.zip`, and attach it to the GitHub Release. This allows non-developer users to bypass node installations and download the extension binary instantly!
-
----
+- [ ] Add support for syncing submissions from other platforms (LeetCode, AtCoder, CodeChef).
+- [ ] Allow customizable commit messages.
+- [ ] Create an explicit "Sync Now" button in the popup to force an immediate refresh.
+- [ ] Implement a rich dashboard showing solving statistics and language summaries.
+- [ ] Submit to Chrome Web Store for easier access.
 
 ## 🤝 Contributing
 
-We heartily welcome community maintenance! Before contributing, please obey the rules:
-* **Manifest V3 Standards**: Ensure all networking architectures obey standard non-persistent Service Worker lifecycle constraints.
-* **Stable Polling**: Do not aggressively shorten the timeout interval in `background.ts`. Hammering Codeforces or GitHub APIs excessively causes rate-limit 429 strikes.
-* **Propose First**: If you are deploying massive refactoring or feature additions, please open an **Issue** to discuss it before blindly drafting a Pull Request.
-* **Code Formatting**: Ensure you run `npm run lint` and verify your Typescript interfaces match standard ESLint style guides. 
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
----
+> **Important Note for Developers:** Ensure you keep a Codeforces tab open while testing, as the extension relies on active tab sessions to bypass Cloudflare protection!
 
-## 🚑 Troubleshooting / FAQ
+1. Fork the Project.
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the Branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
 
-**Q: My submission was C++, but it uploaded to GitHub as a `.c` file!**  
-*A: This was a historical bug caused by greedy string checking. Ensure you pull the latest version of the repository where the algorithm explicitly checks (`C++`, `G++`, `CLANG++`) safely before processing trailing `C` targets!*
+## 🚑 Troubleshooting
 
-**Q: DevTools says "Blocked by Cloudflare Error"?**  
-*A: Ensure you keep the actual `codeforces.com` website actively open in one of your browser tabs. Without a valid tab session, Codeforces treats the background worker as a web scraper bot!*
-
----
-
-## 🎨 Design
-
-> *Note: The CodeforcesSync application icon was uniquely designed blending the Codeforces Bar Chart aesthetic uniquely into the GitHub Octocat Commit network nodes layout for a distinctive premium feel!*
+**Code is not syncing?**
+* **Cloudflare Blocking:** DevTools might say "Blocked by Cloudflare Error". Ensure you keep the actual `codeforces.com` website actively open in your browser. Without a valid tab session, Codeforces treats the background worker as a web scraper bot!
+* **Missing Handle:** Double-check that your Codeforces handle in the extension settings matches exactly with your profile.
 
 ## 📄 License
 
-This repository is available as Open Source under the **[MIT License](https://opensource.org/licenses/MIT)**. You are fully permitted to study, modify, deploy, and fork these functionalities for any personal or commercial application!
+Distributed under the MIT License. See `LICENSE` for more information.
+
+---
+
+<div align="center">
+  Made with ❤️ by an Open Source Developer
+</div>
