@@ -36,18 +36,9 @@ Whenever you receive an **"Accepted"** verdict on Codeforces, this extension aut
 
 ## 📸 Screenshots
 
-<table align="center">
-  <tr>
-    <td align="center"><img src="images/image_8898a2.png" alt="Disconnected State" width="100%" /></td>
-    <td align="center"><img src="images/image_8898a1.png" alt="Settings Configuration" width="100%" /></td>
-    <td align="center"><img src="images/image_8895ff.png" alt="Connected State" width="100%" /></td>
-  </tr>
-  <tr>
-    <td align="center"><b>Disconnected State</b></td>
-    <td align="center"><b>Settings Configuration</b></td>
-    <td align="center"><b>Connected State</b></td>
-  </tr>
-</table>
+| Disconnected State | Settings Configuration | Connected State |
+| :---: | :---: | :---: |
+| <img src="public/icons/disconnected.png" alt="Disconnected" width="250"/> | <img src="public/icons/settings.png" alt="Settings" width="250"/> | <img src="public/icons/connected.png" alt="Connected" width="250"/> |
 
 ## ✨ Features
 
