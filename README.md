@@ -36,12 +36,18 @@ Whenever you receive an **"Accepted"** verdict on Codeforces, this extension aut
 
 ## 📸 Screenshots
 
-> **Note:** Replace these placeholders with actual screenshots of your extension.
-
-<div align="center">
-  <img src="https://via.placeholder.com/800x400.png?text=Extension+Popup+Screenshot" alt="CodeforcesSync Popup" width="45%" />
-  <img src="https://via.placeholder.com/800x400.png?text=GitHub+Repository+Sync+Screenshot" alt="GitHub Repo Sync" width="45%" />
-</div>
+<table align="center">
+  <tr>
+    <td align="center"><img src="images/image_8898a2.png" alt="Disconnected State" width="100%" /></td>
+    <td align="center"><img src="images/image_8898a1.png" alt="Settings Configuration" width="100%" /></td>
+    <td align="center"><img src="images/image_8895ff.png" alt="Connected State" width="100%" /></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Disconnected State</b></td>
+    <td align="center"><b>Settings Configuration</b></td>
+    <td align="center"><b>Connected State</b></td>
+  </tr>
+</table>
 
 ## ✨ Features
 
@@ -77,7 +83,7 @@ CodeforcesSync is built with modern web technologies:
 CodeforcesSync is distributed via source and Developer Mode in Chrome.
 
 ### 1. Download the Extension
-Download the latest **Pre-built Release** ZIP file from the [Releases page](https://github.com/mhdnazrul/CodeforcesSync/releases) or build it manually from source.
+Download the latest **Pre-built Release** ZIP file from the [Releases page](https://github.com/mhdnazrul/CodeforcesSync/releases) or build it manually from source. #[**Best Oprtion**]
 
 **To build from source:**
 ```bash
@@ -112,10 +118,14 @@ To allow the extension to securely push code on your behalf, you need a standard
 Create a new Public or Private repository on GitHub (e.g., `Codeforces-Solutions`).
 
 ### Step 2: Generate a Personal Access Token
-1. Go to your GitHub **Settings** → **Developer Settings** → **Personal Access Tokens** → **Tokens (classic)**.
-2. Click **Generate new token (classic)**. Set the expiration date and give it a name.
-3. Check the **`repo`** scope box (Grants full control over private repositories).
-4. Click **Generate token** and **COPY it immediately**.
+1. Go to **GitHub → Settings → Developer settings → Personal Access Tokens → Tokens (classic/fine-grained)**
+2. Click **Generate new token → Fine-grained token**.
+3. set **name** and **date** (e.g., `30 day` or `90 days`)
+4. **Repository access: Select repositories → (e.g., `Codeforces-Solutions`)
+5. **Permissions:**
+**Contents** → `Read & Write` <br>
+**Commit statuses** → `Read & Write` (optional)
+6. Click **Generate token** and **COPY it immediately** → **update your extension** with it.
 
 ### Step 3: Link the Extension
 1. Click the **CodeforcesSync icon** in your Chrome toolbar.
@@ -188,5 +198,16 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ---
 
 <div align="center">
-  Made with ❤️ by an Open Source Developer
+  <h3><b>Codeforces to GitHub Auto-Sync</b></h3>
+  <p>Made with ❤️ by <b>Nazrul</b></p>
+  
+  <a href="https://github.com/mhdnazrul">
+    <img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/>
+  </a>
+  <a href="mailto:mhdnazrul511@gmail.com">
+    <img src="https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"/>
+  </a>
+  
+  <br>
+  <p>If you like this extension, please consider giving it a ⭐!</p>
 </div>
