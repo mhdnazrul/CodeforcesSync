@@ -8,6 +8,7 @@ export interface AppSettings {
   lastAcceptedDate: string | null;
   codeforcesHandle: string;
   syncedSubmissions: string[];
+  solvedDays: string[];
 }
 
 export const defaultSettings: AppSettings = {
@@ -20,6 +21,7 @@ export const defaultSettings: AppSettings = {
   lastAcceptedDate: null,
   codeforcesHandle: "",
   syncedSubmissions: [],
+  solvedDays: [],
 };
 
 /**

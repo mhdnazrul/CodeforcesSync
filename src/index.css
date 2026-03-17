@@ -1,1 +1,52 @@
 @import "tailwindcss";
+
+:root {
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --secondary: #059669;
+  --success: #10b981;
+  --error: #f43f5e;
+  --background: #ffffff;
+  --surface: #f8fafc;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border: #e2e8f0;
+  --card-bg: #fffbf0; /* Light cream for streak card */
+  --card-border: #fde68a;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: #f1f5f9;
+  color: var(--text-main);
+  overflow: hidden;
+}
+
+#root {
+  width: 360px;
+  background: var(--background);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border);
+}
+
+.streak-card {
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  box-shadow: 0 4px 15px -3px rgba(253, 230, 138, 0.3);
+}
+
+@keyframes pulse-soft {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s infinite ease-in-out;
+}

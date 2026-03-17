@@ -35,89 +35,91 @@ function unescapeHtml(safe: string) {
 }
 
 /**
- * Fetches the HTML of a submission either via an active Codeforces tab (to bypass Cloudflare Bot Protection)
- * or via standard fetch as a fallback.
+ * Detects the type of submission and builds the correct Codeforces URL.
+ * Supports: Contests, Problemset, Gym, and Groups.
  */
-async function fetchSourceCode(
-  contestId: string,
-  submissionId: string,
-  tabId?: number,
-): Promise<string | null> {
+function generateSubmissionUrl(sub: any): string {
+  const submissionId = sub.id;
+  const contestId = sub.contestId;
+  const isGym = contestId >= 100000; // Typical threshold for Gym contests
+
+  if (isGym) {
+    return `https://codeforces.com/gym/${contestId}/submission/${submissionId}`;
+  }
+  
+  // Standard Contest / Problemset URL
+  // Problemset submissions can usually be accessed via the contest path as well
+  return `https://codeforces.com/contest/${contestId}/submission/${submissionId}`;
+}
+
+/**
+ * Ultra-robust source code extraction using separate tab navigation.
+ * Bypasses CSP, Cloudflare, and complex HTML structures.
+ */
+async function fetchSourceCode(sub: any): Promise<string | null> {
+  const url = generateSubmissionUrl(sub);
+  const submissionId = sub.id;
+
   try {
-    let url = `https://codeforces.com/contest/${contestId}/submission/${submissionId}`;
-    if (!contestId) {
-      url = `https://codeforces.com/problemset/submission/${submissionId}`; // Fallback if contestId was not extracted
-    }
+    console.log(`CodeforcesSync: Creating extraction tab for ${submissionId}: ${url}`);
+    const tab = await chrome.tabs.create({ url, active: false });
 
-    let html = "";
+    try {
+      // 1. Wait for tab to be fully loaded
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          chrome.tabs.onUpdated.removeListener(listener);
+          reject(new Error("Tab load timeout (25s)"));
+        }, 25000);
 
-    // Cloudflare blocks Service Worker anonymous fetches, so we inject the fetch
-    // securely into an open Codeforces tab to use the active Session.
-    if (tabId !== undefined) {
-      console.log(
-        `CodeforcesSync: Fetching source utilizing Codeforces tab ID ${tabId}`,
-      );
-      const results = await chrome.scripting.executeScript({
-        target: { tabId: tabId },
-        func: async (fetchUrl) => {
-          try {
-            const res = await fetch(fetchUrl);
-            return { ok: true, text: await res.text(), status: res.status };
-          } catch (e: any) {
-            return { ok: false, error: e.toString() };
+        function listener(tabId: number, info: any) {
+          if (tabId === tab.id && info.status === "complete") {
+            chrome.tabs.onUpdated.removeListener(listener);
+            clearTimeout(timeout);
+            resolve(true);
           }
-        },
-        args: [url],
-      });
-      if (results && results[0].result) {
-        const payload = results[0].result as any;
-        if (payload && payload.ok) {
-          html = payload.text;
-          if (payload.status !== 200) {
-             console.warn(`CodeforcesSync: Tab fetch returned non-200 status: ${payload.status}`);
-          }
-        } else {
-          console.error(`CodeforcesSync: Tab fetch exception inside page: ${payload?.error}`);
         }
+        chrome.tabs.onUpdated.addListener(listener);
+      });
+
+      // 2. Inject extraction script with fallback selectors
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id! },
+        func: () => {
+          // Use multiple robust selectors as requested
+          const selectors = [
+            '#program-source-text',
+            '.program-source',
+            'pre.prettyprint',
+            '.source-code'
+          ];
+
+          for (const selector of selectors) {
+            const el = document.querySelector(selector) as HTMLElement;
+            if (el && el.innerText.trim().length > 0) {
+              console.log(`CodeforcesSync: Found code via ${selector}`);
+              return el.innerText;
+            }
+          }
+          return null;
+        },
+      });
+
+      if (results && results[0].result) {
+        console.log(`CodeforcesSync: Successfully extracted code for ${submissionId}`);
+        return unescapeHtml(results[0].result as string);
+      }
+
+      console.error(`CodeforcesSync: All extraction selectors failed for ${submissionId}`);
+      return null;
+    } finally {
+      // 3. Cleanup: Always close the tab
+      if (tab.id) {
+        chrome.tabs.remove(tab.id).catch(() => {});
       }
     }
-
-    if (!html || html.trim() === "") {
-      console.log(
-        "CodeforcesSync: Tab fetch failed (HTML was empty or injection failed). Attempting background fetch fallback...",
-      );
-      const response = await fetch(url, { credentials: "include" });
-      html = await response.text();
-    }
-
-    // Checking if Cloudflare blocked us
-    if (
-      html.includes("Just a moment...") &&
-      html.includes("challenge-error-text")
-    ) {
-      console.error(
-        "CodeforcesSync: Blocked by Cloudflare. A Codeforces tab must be actively open to bypass bot protection.",
-      );
-      return null;
-    }
-
-    // We look for <pre id="program-source-text" ...> ... </pre>
-    const match = html.match(
-      /<pre[^>]*id="program-source-text"[^>]*>([\s\S]*?)<\/pre>/i,
-    );
-    if (!match || match.length < 2) {
-      console.error(
-        `CodeforcesSync: Could not find source code in HTML for submission ${submissionId}`,
-      );
-      return null;
-    }
-
-    return unescapeHtml(match[1]);
-  } catch (e) {
-    console.error(
-      "CodeforcesSync: Error fetching source code from Codeforces:",
-      e,
-    );
+  } catch (e: any) {
+    console.error(`CodeforcesSync: Extraction engine failure for ${submissionId}:`, e.message);
     return null;
   }
 }
@@ -144,10 +146,29 @@ async function updateStreak() {
       .toISOString()
       .split("T")[0];
 
+    const solvedDays = settings.solvedDays || [];
+    if (!solvedDays.includes(todayStr)) {
+      solvedDays.push(todayStr);
+    }
+
+    // Keep only last 30 days of activity to keep storage clean
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+    const thirtyDaysAgoStr = new Date(
+      thirtyDaysAgo.getTime() - thirtyDaysAgo.getTimezoneOffset() * 60000,
+    )
+      .toISOString()
+      .split("T")[0];
+
+    const updatedSolvedDays = solvedDays
+      .filter((date) => date >= thirtyDaysAgoStr)
+      .sort();
+
     const lastStr = settings.lastAcceptedDate;
 
     if (lastStr === todayStr) {
-      return; // already updated today
+      await saveSettings({ solvedDays: updatedSolvedDays });
+      return; // streak already updated today, but solvedDays might have changed (e.g. if we sync older submissions)
     }
 
     const yesterday = new Date(now);
@@ -167,6 +188,7 @@ async function updateStreak() {
     await saveSettings({
       currentStreak: newStreak,
       lastAcceptedDate: todayStr,
+      solvedDays: updatedSolvedDays,
     });
     console.log(`CodeforcesSync: Streak updated to ${newStreak}`);
   } catch (e) {
@@ -179,8 +201,31 @@ async function updateStreak() {
  */
 async function syncSolutions() {
   try {
-    console.log("CodeforcesSync: Starting sync execution...");
     const settings = await getSettings();
+    const now = new Date();
+    const todayStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split("T")[0];
+
+    // Check if streak is broken (missed yesterday)
+    const lastAccepted = settings.lastAcceptedDate;
+    if (lastAccepted) {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const yesterdayStr = new Date(
+        yesterday.getTime() - yesterday.getTimezoneOffset() * 60000,
+      )
+        .toISOString()
+        .split("T")[0];
+
+      if (lastAccepted !== todayStr && lastAccepted !== yesterdayStr) {
+        if (settings.currentStreak !== 0) {
+          console.log("CodeforcesSync: Streak broken, resetting to 0");
+          await saveSettings({ currentStreak: 0 });
+          chrome.runtime.sendMessage({ type: "SYNC_SUCCESS" }).catch(() => {});
+        }
+      }
+    }
 
     if (
       !settings.githubToken ||
@@ -268,11 +313,11 @@ async function syncSolutions() {
         `CodeforcesSync: Found new Accepted submission: ${submissionId} for Problem ${problemId}`,
       );
 
-      // 4. Extract Source Code
-      const code = await fetchSourceCode(contestId, submissionId, cfTabId);
+      // 4. Extract Source Code via navigation (No fetch!)
+      const code = await fetchSourceCode(sub);
       if (!code) {
         console.error(
-          `CodeforcesSync: No code extracted for ${submissionId}. Skipping.`,
+          `CodeforcesSync: Extraction failed for ${submissionId}. Retrying might be needed later.`,
         );
         continue;
       }
