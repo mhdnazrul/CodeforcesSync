@@ -54,7 +54,7 @@ function generateSubmissionUrl(sub: any): string {
 
 /**
  * Ultra-robust source code extraction using separate tab navigation.
- * Bypasses CSP, Cloudflare, and complex HTML structures.
+ * Bypasses CSP, Cloudflare, and handles lazy-rendered code blocks via Wait + Retry.
  */
 async function fetchSourceCode(sub: any): Promise<string | null> {
   const url = generateSubmissionUrl(sub);
@@ -62,10 +62,12 @@ async function fetchSourceCode(sub: any): Promise<string | null> {
 
   try {
     console.log(`CodeforcesSync: Creating extraction tab for ${submissionId}: ${url}`);
-    const tab = await chrome.tabs.create({ url, active: false });
+    
+    // Using active: true temporarily as requested to ensure rendering in some environments
+    const tab = await chrome.tabs.create({ url, active: true });
 
     try {
-      // 1. Wait for tab to be fully loaded
+      // 1. Wait for tab to be fully loaded (Phase 1)
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           chrome.tabs.onUpdated.removeListener(listener);
@@ -82,38 +84,61 @@ async function fetchSourceCode(sub: any): Promise<string | null> {
         chrome.tabs.onUpdated.addListener(listener);
       });
 
-      // 2. Inject extraction script with fallback selectors
+      // 2. Extra delay to allow for dynamic rendering (Phase 2)
+      console.log(`CodeforcesSync: Tab loaded. Waiting 1.5s for dynamic rendering...`);
+      await new Promise(r => setTimeout(r, 1500));
+
+      // 3. Inject extraction script with REPEAT + RETRY logic
       const results = await chrome.scripting.executeScript({
         target: { tabId: tab.id! },
-        func: () => {
-          // Use multiple robust selectors as requested
+        func: async () => {
           const selectors = [
             '#program-source-text',
             '.program-source',
             'pre.prettyprint',
-            '.source-code'
+            '.source-code',
+            '#sourceCode'
           ];
 
-          for (const selector of selectors) {
-            const el = document.querySelector(selector) as HTMLElement;
-            if (el && el.innerText.trim().length > 0) {
-              console.log(`CodeforcesSync: Found code via ${selector}`);
-              return el.innerText;
+          const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+          for (let attempt = 1; attempt <= 10; attempt++) {
+            console.log(`CodeforcesSync: Extraction attempt ${attempt}...`);
+            
+            // Try specific selectors
+            for (const selector of selectors) {
+              const el = document.querySelector(selector) as HTMLElement;
+              if (el && el.innerText.trim().length > 10) {
+                console.log(`CodeforcesSync: Success! Found code via ${selector} on attempt ${attempt}`);
+                return el.innerText;
+              }
             }
+
+            // Fallback: Find largest <pre> element with meaningful text
+            const pres = Array.from(document.getElementsByTagName('pre'));
+            if (pres.length > 0) {
+              const largest = pres.reduce((p, c) => (p.innerText.length > c.innerText.length ? p : c));
+              if (largest && largest.innerText.trim().length > 50) {
+                console.log(`CodeforcesSync: Success! Found code via largest <pre> fallback on attempt ${attempt}`);
+                return largest.innerText;
+              }
+            }
+
+            await wait(600); // Wait 600ms before next retry
           }
           return null;
         },
       });
 
       if (results && results[0].result) {
-        console.log(`CodeforcesSync: Successfully extracted code for ${submissionId}`);
+        console.log(`CodeforcesSync: Extraction successful for ${submissionId}`);
         return unescapeHtml(results[0].result as string);
       }
 
-      console.error(`CodeforcesSync: All extraction selectors failed for ${submissionId}`);
+      console.error(`CodeforcesSync: Extraction failed for ${submissionId} after 10 retries.`);
       return null;
     } finally {
-      // 3. Cleanup: Always close the tab
+      // 4. Cleanup: Always close the tab
       if (tab.id) {
         chrome.tabs.remove(tab.id).catch(() => {});
       }
