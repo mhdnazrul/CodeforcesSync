@@ -41,14 +41,26 @@ function unescapeHtml(safe: string) {
 function generateSubmissionUrl(sub: any): string {
   const submissionId = sub.id;
   const contestId = sub.contestId;
-  const isGym = contestId >= 100000; // Typical threshold for Gym contests
-
-  if (isGym) {
+  
+  // Problemset submissions: contestId < 1000 and problem index is usually a letter
+  // Gym submissions: contestId >= 100000
+  // Standard Contest: Everything else
+  
+  if (contestId >= 100000) {
+    console.log(`CodeforcesSync: Detected Gym submission ${submissionId} for contest ${contestId}`);
     return `https://codeforces.com/gym/${contestId}/submission/${submissionId}`;
   }
   
-  // Standard Contest / Problemset URL
-  // Problemset submissions can usually be accessed via the contest path as well
+  // Actually Codeforces allows accessing almost any submission via the /contest/ path
+  // but we can be explicit if needed.
+  if (contestId < 10000) {
+     // Likely standard contest or problemset
+     console.log(`CodeforcesSync: Detected standard/problemset submission ${submissionId} for contest ${contestId}`);
+     return `https://codeforces.com/contest/${contestId}/submission/${submissionId}`;
+  }
+
+  // Fallback for everything else
+  console.log(`CodeforcesSync: Using default contest URL builder for ${submissionId}`);
   return `https://codeforces.com/contest/${contestId}/submission/${submissionId}`;
 }
 
@@ -61,13 +73,14 @@ async function fetchSourceCode(sub: any): Promise<string | null> {
   const submissionId = sub.id;
 
   try {
-    console.log(`CodeforcesSync: Creating extraction tab for ${submissionId}: ${url}`);
+    console.log(`CodeforcesSync: [URL Generation] Submission ID: ${submissionId} -> URL: ${url}`);
     
-    // Using active: true temporarily as requested to ensure rendering in some environments
+    // Using active: true to ensure full rendering in all environments
+    console.log(`CodeforcesSync: [Tab Creation] Creating active tab for extraction...`);
     const tab = await chrome.tabs.create({ url, active: true });
 
     try {
-      // 1. Wait for tab to be fully loaded (Phase 1)
+      // 1. Wait for tab to be fully loaded (Phase 1: Readiness)
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           chrome.tabs.onUpdated.removeListener(listener);
@@ -84,58 +97,61 @@ async function fetchSourceCode(sub: any): Promise<string | null> {
         chrome.tabs.onUpdated.addListener(listener);
       });
 
-      // 2. Extra delay to allow for dynamic rendering (Phase 2)
-      console.log(`CodeforcesSync: Tab loaded. Waiting 1.5s for dynamic rendering...`);
-      await new Promise(r => setTimeout(r, 1500));
+      // 2. Extra delay for dynamic scripts/syntax highlighters (Phase 2: Stabilization)
+      console.log(`CodeforcesSync: [Extraction] Tab ready. Waiting 2.0s for stabilization...`);
+      await new Promise(r => setTimeout(r, 2000));
 
-      // 3. Inject extraction script with REPEAT + RETRY logic
+      // 3. Inject extraction script with 12-attempt retry loop
+      console.log(`CodeforcesSync: [Extraction] Injecting retry-based extraction script...`);
       const results = await chrome.scripting.executeScript({
         target: { tabId: tab.id! },
         func: async () => {
+          // Comprehensive selectors as requested
           const selectors = [
             '#program-source-text',
             '.program-source',
             'pre.prettyprint',
             '.source-code',
-            '#sourceCode'
+            '#sourceCode',
+            'div.source-code pre'
           ];
 
           const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-          for (let attempt = 1; attempt <= 10; attempt++) {
-            console.log(`CodeforcesSync: Extraction attempt ${attempt}...`);
+          for (let attempt = 1; attempt <= 12; attempt++) {
+            console.log(`CodeforcesSync (Tab): Extraction attempt ${attempt}...`);
             
             // Try specific selectors
             for (const selector of selectors) {
               const el = document.querySelector(selector) as HTMLElement;
-              if (el && el.innerText.trim().length > 10) {
-                console.log(`CodeforcesSync: Success! Found code via ${selector} on attempt ${attempt}`);
+              if (el && el.innerText.trim().length > 20) {
+                console.log(`CodeforcesSync (Tab): Success! Found source via ${selector} on attempt ${attempt}`);
                 return el.innerText;
               }
             }
 
-            // Fallback: Find largest <pre> element with meaningful text
+            // Fallback: Find largest <pre> element with meaningful content
             const pres = Array.from(document.getElementsByTagName('pre'));
             if (pres.length > 0) {
               const largest = pres.reduce((p, c) => (p.innerText.length > c.innerText.length ? p : c));
-              if (largest && largest.innerText.trim().length > 50) {
-                console.log(`CodeforcesSync: Success! Found code via largest <pre> fallback on attempt ${attempt}`);
+              if (largest && largest.innerText.trim().length > 100) {
+                console.log(`CodeforcesSync (Tab): Success! Found source via largest <pre> fallback on attempt ${attempt}`);
                 return largest.innerText;
               }
             }
 
-            await wait(600); // Wait 600ms before next retry
+            await wait(500); // 500ms delay between retries
           }
           return null;
         },
       });
 
       if (results && results[0].result) {
-        console.log(`CodeforcesSync: Extraction successful for ${submissionId}`);
+        console.log(`CodeforcesSync: [Extraction Success] Code extracted for ${submissionId}`);
         return unescapeHtml(results[0].result as string);
       }
 
-      console.error(`CodeforcesSync: Extraction failed for ${submissionId} after 10 retries.`);
+      console.error(`CodeforcesSync: [Extraction Failed] All 12 attempts failed for ${submissionId}`);
       return null;
     } finally {
       // 4. Cleanup: Always close the tab
@@ -144,7 +160,7 @@ async function fetchSourceCode(sub: any): Promise<string | null> {
       }
     }
   } catch (e: any) {
-    console.error(`CodeforcesSync: Extraction engine failure for ${submissionId}:`, e.message);
+    console.error(`CodeforcesSync: [Extraction Error] Fatal failure for ${submissionId}:`, e.message);
     return null;
   }
 }
@@ -335,7 +351,7 @@ async function syncSolutions() {
       }
 
       console.log(
-        `CodeforcesSync: Found new Accepted submission: ${submissionId} for Problem ${problemId}`,
+        `CodeforcesSync: [Submission Detection] Found new Accepted submission: ${submissionId} for Problem ${problemId}`,
       );
 
       // 4. Extract Source Code via navigation (No fetch!)
@@ -387,7 +403,7 @@ async function syncSolutions() {
 
       if (success) {
         console.log(
-          `CodeforcesSync: Successfully synced ${submissionId} to GitHub!`,
+          `CodeforcesSync: [GitHub Push Success] Synced ${submissionId} to ${settings.githubUsername}/${settings.githubRepo}`,
         );
 
         // Mark submission as permanently synced to prevent duplicates
@@ -400,7 +416,7 @@ async function syncSolutions() {
         chrome.runtime.sendMessage({ type: "SYNC_SUCCESS" }).catch(() => {});
       } else {
         console.error(
-          `CodeforcesSync: Failed to sync ${submissionId} to GitHub.`,
+          `CodeforcesSync: [GitHub Push Failed] Failed to sync ${submissionId} to GitHub.`,
         );
       }
 
