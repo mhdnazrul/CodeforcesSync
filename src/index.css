@@ -1,52 +1,126 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
 @import "tailwindcss";
 
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
 :root {
-  --primary: #0d9488;
-  --primary-hover: #0f766e;
-  --secondary: #059669;
-  --success: #10b981;
-  --error: #f43f5e;
-  --background: #ffffff;
-  --surface: #f8fafc;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --border: #e2e8f0;
-  --card-bg: #fffbf0; /* Light cream for streak card */
-  --card-border: #fde68a;
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --primary:        #0d9488;
+  --primary-dark:   #0f766e;
+  --success:        #10b981;
+  --error:          #f43f5e;
+  --background:     #ffffff;
+  --surface:        #f8fafc;
+  --text-main:      #1e293b;
+  --text-muted:     #64748b;
+  --border:         #e2e8f0;
+  --card-bg:        #fffbf0;
+  --card-border:    #fde68a;
+  --font-sans:      "Inter", system-ui, -apple-system, sans-serif;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background-color: #f1f5f9;
+  background-color: var(--background);
   color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Popup root ─────────────────────────────────────────────────────────────── */
+#root {
+  width: 360px;
+  min-height: 480px;
+  background: var(--background);
   overflow: hidden;
 }
 
-#root {
-  width: 360px;
-  background: var(--background);
-}
-
-.glass-card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
-}
-
+/* ── Streak card ────────────────────────────────────────────────────────────── */
 .streak-card {
-  background: var(--card-bg);
-  border: 2px solid var(--card-border);
-  box-shadow: 0 4px 15px -3px rgba(253, 230, 138, 0.3);
+  background:    var(--card-bg);
+  border:        2px solid var(--card-border);
+  box-shadow:    0 4px 20px -4px rgba(253, 230, 138, 0.4);
+  transition:    box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.streak-card:hover {
+  box-shadow: 0 6px 24px -4px rgba(253, 230, 138, 0.55);
 }
 
+/* ── Settings form helpers ──────────────────────────────────────────────────── */
+.settings-section-label {
+  font-size:      0.625rem;   /* 10px */
+  font-weight:    700;
+  color:          var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.settings-label {
+  display:       block;
+  font-size:     0.75rem;     /* 12px */
+  font-weight:   600;
+  color:         #475569;     /* slate-600 */
+  margin-bottom: 0.25rem;
+}
+
+.settings-input {
+  width:         100%;
+  font-size:     0.8125rem;   /* 13px */
+  background:    #f8fafc;
+  border:        1px solid var(--border);
+  border-radius: 0.625rem;    /* 10px */
+  padding:       0.5625rem 0.75rem;
+  color:         var(--text-main);
+  transition:    border-color 0.15s, box-shadow 0.15s;
+  outline:       none;
+}
+.settings-input:focus {
+  border-color: var(--primary);
+  box-shadow:   0 0 0 3px rgba(13, 148, 136, 0.15);
+}
+.settings-input::placeholder {
+  color: #94a3b8;
+}
+
+.section-divider {
+  border: none;
+  border-top: 1px solid #f1f5f9;
+}
+
+/* ── Primary button ─────────────────────────────────────────────────────────── */
+.btn-primary {
+  background:    var(--primary);
+  color:         #ffffff;
+  font-size:     0.8125rem;
+  font-weight:   700;
+  padding:       0.5rem 1.5rem;
+  border-radius: 0.625rem;
+  border:        none;
+  cursor:        pointer;
+  transition:    background 0.15s, transform 0.1s, opacity 0.15s;
+  outline:       none;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ── Animations ─────────────────────────────────────────────────────────────── */
 @keyframes pulse-soft {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0%, 100% { transform: scale(1);    opacity: 1;    }
+  50%       { transform: scale(1.06); opacity: 0.85; }
 }
 
 .animate-pulse-soft {
-  animation: pulse-soft 2s infinite ease-in-out;
+  animation: pulse-soft 2.2s ease-in-out infinite;
 }
