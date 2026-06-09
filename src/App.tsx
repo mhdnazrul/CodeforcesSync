@@ -111,6 +111,8 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [showSettings, setShowSettings] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  // Shown when the background worker detects a 401 from GitHub (expired token)
+  const [tokenExpired, setTokenExpired] = useState(false);
 
   const isAuthenticated = !!settings.githubToken && !!settings.githubUsername;
   const repoLinked = !!settings.githubRepo;
@@ -119,11 +121,17 @@ export default function App() {
   const weeklyProgress = getWeeklyProgress(settings.solvedDays);
 
   useEffect(() => {
-    getSettings().then(setSettings);
+    // void-cast makes the floating promise explicit and lint-clean
+    void getSettings().then(setSettings);
 
     const listener = (message: { type: string }) => {
       if (message.type === "SYNC_SUCCESS") {
-        getSettings().then(setSettings);
+        void getSettings().then(setSettings);
+      }
+      // Background worker auto-logs-out on 401 and sends this message
+      if (message.type === "TOKEN_EXPIRED") {
+        setTokenExpired(true);
+        void getSettings().then(setSettings);
       }
     };
     chrome.runtime.onMessage.addListener(listener);
@@ -416,6 +424,16 @@ export default function App() {
               </button>
             )}
           </div>
+
+          {/* Token-expired warning — shown when GitHub returns 401 */}
+          {tokenExpired && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-rose-50 border border-rose-100">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+              <span className="text-[10px] text-rose-700 font-semibold">
+                GitHub token expired — please update it in Settings.
+              </span>
+            </div>
+          )}
 
           {/* Auto-sync indicator */}
           <div className="flex items-center gap-1.5 pt-1 border-t border-slate-50">

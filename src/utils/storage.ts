@@ -25,38 +25,55 @@ export const defaultSettings: AppSettings = {
 };
 
 /**
- * Get all extension settings from Chrome Storage
+ * Get all extension settings from Chrome Storage.
+ *
+ * chrome.storage.local.get() merges the returned object with the defaults
+ * object, so every key is guaranteed to be present in the result even if it
+ * was never written.  The cast is safe because we pass `defaultSettings` as
+ * the template and the returned shape matches `AppSettings` exactly.
  */
 export const getSettings = async (): Promise<AppSettings> => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     chrome.storage.local.get(
-      defaultSettings as Record<string, any>,
+      defaultSettings as unknown as Record<string, unknown>,
       (items) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
         resolve(items as unknown as AppSettings);
-      },
+      }
     );
   });
 };
 
 /**
- * Save settings to Chrome Storage
+ * Save (partial) settings to Chrome Storage.
  */
 export const saveSettings = async (
-  settings: Partial<AppSettings>,
+  settings: Partial<AppSettings>
 ): Promise<void> => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     chrome.storage.local.set(settings, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
       resolve();
     });
   });
 };
 
 /**
- * Clear all settings from Chrome Storage (Logout)
+ * Clear all settings from Chrome Storage (Logout).
  */
 export const clearSettings = async (): Promise<void> => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     chrome.storage.local.clear(() => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
       resolve();
     });
   });
