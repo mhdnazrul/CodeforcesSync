@@ -4,20 +4,8 @@ import { generateFilePath } from "../utils/formatters";
 
 const github = new GithubHandler();
 
-// ─── Concurrency guard ────────────────────────────────────────────────────────
-// Prevents overlapping sync runs if the Service Worker alarm fires while a
-// previous sync is still in progress (each submission takes several seconds).
 let isSyncing = false;
 
-// ─── Retry state tracker ──────────────────────────────────────────────────────
-// Tracks consecutive API failures so we can apply exponential backoff and
-// avoid hammering a rate-limited / Cloudflare-protected endpoint.
-//
-// NOTE: This object lives in module-level memory.  A Chrome MV3 Service Worker
-// can be terminated between alarm firings (it is NOT a long-lived process).
-// When it restarts the counters reset to zero, which is the correct behaviour:
-// a fresh SW restart is already a natural "pause", so resetting backoff on
-// restart is safe and prevents stale counters persisting across browser sessions.
 interface RetryState {
   consecutiveFailures: number;
   lastFailureTime: number;
@@ -32,15 +20,10 @@ let retryState: RetryState = {
   backoffUntil: 0,
 };
 
-// Maximum number of consecutive failures before the backoff ceiling is reached.
 const MAX_CONSECUTIVE_FAILURES = 8;
-// Base delay in ms for exponential backoff (doubles with each failure).
-const BACKOFF_BASE_MS = 30_000; // 30 s
-// Ceiling: never wait more than ~16 minutes between retries.
+const BACKOFF_BASE_MS = 30_000;
 const BACKOFF_CAP_MS = 960_000;
 
-// ─── Alarm setup ─────────────────────────────────────────────────────────────
-// Check before creating to avoid duplicate alarms on Service Worker restarts.
 chrome.alarms.get("codeforces-sync", (existing) => {
   if (!existing) {
     chrome.alarms.create("codeforces-sync", { periodInMinutes: 1 });
@@ -50,16 +33,12 @@ chrome.alarms.get("codeforces-sync", (existing) => {
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "codeforces-sync") {
     console.log("CodeforcesSync: Running background sync interval…");
-    // Floating-promise is intentional here: the alarm listener must be
-    // synchronous. syncSolutions() is self-guarded by isSyncing and its own
-    // top-level try/catch, so an unhandled rejection is impossible.
     syncSolutions().catch((e) =>
       console.error("CodeforcesSync: Top-level sync exception:", e)
     );
   }
 });
 
-// ─── HTML entity decoder ──────────────────────────────────────────────────────
 function unescapeHtml(safe: string): string {
   return safe
     .replace(/&amp;/g, "&")
@@ -71,15 +50,6 @@ function unescapeHtml(safe: string): string {
     .replace(/&nbsp;/g, " ");
 }
 
-// ─── URL builder ──────────────────────────────────────────────────────────────
-/**
- * Builds the canonical Codeforces submission URL.
- *
- * contestId ranges:
- *   >= 100000 → Gym contest
- *   1 – 99999 → Standard contest / Problemset
- *   absent    → Problemset-only submission (no contestId field)
- */
 function generateSubmissionUrl(sub: Submission): string {
   const { id: submissionId, contestId } = sub;
 
@@ -96,9 +66,6 @@ function generateSubmissionUrl(sub: Submission): string {
   return `https://codeforces.com/contest/${contestId}/submission/${submissionId}`;
 }
 
-// ─── Minimal typed interfaces for CF API objects ──────────────────────────────
-// Using `any` everywhere makes null-access bugs invisible to TypeScript.
-// These lightweight interfaces give the compiler enough to catch common mistakes.
 interface CfProblem {
   index: string;
   name: string;
@@ -112,19 +79,159 @@ interface Submission {
   problem: CfProblem;
 }
 
-// ─── Source code extractor ────────────────────────────────────────────────────
+interface CfApiResponse {
+  status: string;
+  result?: unknown[];
+  comment?: string;
+}
+
 /**
- * Opens a BACKGROUND (hidden) tab to scrape the submission source code.
- *
- * Tab lifecycle guarantee
- * ───────────────────────
- * The tab reference is captured before `await` so it is always visible to the
- * `finally` block.  The `finally` block runs unconditionally — whether the body
- * succeeds, throws, or times out — so the tab is ALWAYS closed.
- *
- * The `onUpdated` listener is removed in BOTH the resolve and reject paths of
- * the inner Promise, preventing a listener leak if the timeout fires first.
+ * Parses RSS/Atom feed XML to extract submission data.
+ * Handles both Codeforces RSS and Atom feeds with robust error recovery.
  */
+function parseRssFeed(xmlText: string): Submission[] {
+  const submissions: Submission[] = [];
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, "text/xml");
+
+    if (doc.documentElement.nodeName === "parsererror") {
+      console.error(
+        `CodeforcesSync: [RSS] XML parse error: ${doc.documentElement.textContent}`
+      );
+      return submissions;
+    }
+
+    const entries =
+      doc.getElementsByTagName("item").length > 0
+        ? Array.from(doc.getElementsByTagName("item"))
+        : Array.from(doc.getElementsByTagName("entry"));
+
+    for (const entry of entries) {
+      const titleEl =
+        entry.getElementsByTagName("title")[0] ||
+        entry.getElementsByTagName("title")[0];
+      const title = titleEl ? titleEl.textContent || "" : "";
+
+      const linkEl = entry.querySelector(
+        'link[rel="alternate"], link:not([rel])'
+      );
+      const link =
+        linkEl?.getAttribute("href") || linkEl?.textContent || "";
+
+      const descEl = entry.getElementsByTagName("description")[0];
+      const desc = descEl ? descEl.textContent || "" : "";
+
+      const statusMatch = desc.match(/status\s*[:=]\s*(OK|WRONG)/i);
+      const verdict = statusMatch && statusMatch[1].toUpperCase() === "OK" ? "OK" : "";
+
+      if (verdict !== "OK") continue;
+
+      const submissionMatch = link.match(
+        /\/(gym|contest)\/(\d+)\/submission\/(\d+)/
+      );
+      if (!submissionMatch) continue;
+
+      const contestId = parseInt(submissionMatch[2], 10);
+      const submissionId = parseInt(submissionMatch[3], 10);
+
+      const problemMatch = title.match(/(\w+)\s*[-–]\s*(.+?)\s*\[/i);
+      const problemIndex = problemMatch ? problemMatch[1].trim() : "";
+      const problemName = problemMatch ? problemMatch[2].trim() : title.slice(0, 50);
+
+      const langMatch = title.match(/\[([^\]]+)\]\s*$/);
+      const language = langMatch ? langMatch[1].trim() : "Unknown";
+
+      if (submissionId && problemIndex) {
+        submissions.push({
+          id: submissionId,
+          contestId,
+          verdict: "OK",
+          programmingLanguage: language,
+          problem: {
+            index: problemIndex,
+            name: problemName,
+          },
+        });
+      }
+    }
+  } catch (e) {
+    console.error(
+      `CodeforcesSync: [RSS] Parse exception: ${e instanceof Error ? e.message : String(e)}`
+    );
+  }
+
+  return submissions;
+}
+
+/**
+ * Fetches and parses a Codeforces RSS/Atom feed.
+ * Attempts two feed sources in order of reliability.
+ */
+async function fetchRssFeed(handle: string): Promise<Submission[] | null> {
+  const feedUrls = [
+    `https://codeforces.com/rss/submissions/user/${encodeURIComponent(handle)}`,
+    `https://codeforces.com/atom/user/${encodeURIComponent(handle)}/submissions`,
+  ];
+
+  for (let i = 0; i < feedUrls.length; i++) {
+    const feedUrl = feedUrls[i];
+    try {
+      console.log(
+        `CodeforcesSync: [RSS Tier 2] Attempt ${i + 1}/${feedUrls.length} — ${feedUrl}`
+      );
+      const res = await fetch(feedUrl, {
+        method: "GET",
+        headers: { "Cache-Control": "no-cache" },
+      });
+
+      if (!res.ok) {
+        console.warn(
+          `CodeforcesSync: [RSS Tier 2] HTTP ${res.status} from ${feedUrl}`
+        );
+        continue;
+      }
+
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("xml") && !contentType.includes("atom")) {
+        console.warn(
+          `CodeforcesSync: [RSS Tier 2] Unexpected Content-Type: ${contentType}`
+        );
+        continue;
+      }
+
+      const xmlText = await res.text();
+      if (!xmlText || xmlText.length < 100) {
+        console.warn(
+          `CodeforcesSync: [RSS Tier 2] Empty or too-short response: ${xmlText.length} chars`
+        );
+        continue;
+      }
+
+      const submissions = parseRssFeed(xmlText);
+      if (submissions.length > 0) {
+        console.log(
+          `CodeforcesSync: [RSS Tier 2] SUCCESS. Parsed ${submissions.length} submission(s).`
+        );
+        return submissions;
+      }
+
+      console.warn(
+        `CodeforcesSync: [RSS Tier 2] Feed parsed but contains 0 accepted submissions.`
+      );
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(
+        `CodeforcesSync: [RSS Tier 2] Fetch/parse error from ${feedUrl}: ${msg}`
+      );
+    }
+  }
+
+  recordApiFailure("RSS Tier 2: All feed sources exhausted");
+  return null;
+}
+
 async function fetchSourceCode(sub: Submission): Promise<string | null> {
   const url = generateSubmissionUrl(sub);
   const submissionId = sub.id;
@@ -133,45 +240,40 @@ async function fetchSourceCode(sub: Submission): Promise<string | null> {
     `CodeforcesSync: [Extraction] Opening background tab for submission ${submissionId}`
   );
 
-  // Declare tab BEFORE any await so `finally` can always reference it.
   let tab: chrome.tabs.Tab | null = null;
 
   try {
-    // active: false — silent background tab, never steals focus
     tab = await chrome.tabs.create({ url, active: false });
 
-    // Wait for the tab to reach "complete" status (max 30 s).
-    // CRITICAL: both resolve and reject paths remove the listener to prevent leaks.
     await new Promise<void>((resolve, reject) => {
       const tabId = tab!.id!;
+      let listenerAttached = false;
 
       const timeout = setTimeout(() => {
-        chrome.tabs.onUpdated.removeListener(onUpdated); // ← always removed
+        if (listenerAttached) {
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+        }
         reject(new Error(`Tab load timeout (30s) for submission ${submissionId}`));
       }, 30_000);
 
       function onUpdated(updatedTabId: number, info: { status?: string }) {
         if (updatedTabId === tabId && info.status === "complete") {
-          chrome.tabs.onUpdated.removeListener(onUpdated); // ← always removed
+          chrome.tabs.onUpdated.removeListener(onUpdated);
+          listenerAttached = false;
           clearTimeout(timeout);
           resolve();
         }
       }
 
       chrome.tabs.onUpdated.addListener(onUpdated);
+      listenerAttached = true;
     });
 
-    // Brief stabilization delay for dynamic syntax highlighters
     await new Promise((r) => setTimeout(r, 2000));
 
-    // Inject extraction script with retry loop
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id! },
       func: (): string | null => {
-        // NOTE: This function runs in the page context (not the SW).
-        // It is synchronous because executeScript already waits for the page to
-        // reach "complete" before injection.  The inner polling loop is the
-        // correct pattern for content that may still be rendering.
         const selectors = [
           "#program-source-text",
           ".program-source",
@@ -181,22 +283,20 @@ async function fetchSourceCode(sub: Submission): Promise<string | null> {
           "div.source-code pre",
         ];
 
-        // Try selectors immediately — page is already "complete" at this point
         for (const selector of selectors) {
           const el = document.querySelector(selector) as HTMLElement | null;
-          if (el && el.innerText.trim().length > 20) {
+          if (el && el.innerText && el.innerText.trim().length > 20) {
             console.log(`CodeforcesSync (Tab): Found via "${selector}"`);
             return el.innerText;
           }
         }
 
-        // Fallback: largest <pre> element
         const pres = Array.from(document.getElementsByTagName("pre"));
         if (pres.length > 0) {
           const largest = pres.reduce((a, b) =>
-            a.innerText.length > b.innerText.length ? a : b
+            (a.innerText?.length || 0) > (b.innerText?.length || 0) ? a : b
           );
-          if (largest.innerText.trim().length > 100) {
+          if (largest && largest.innerText && largest.innerText.trim().length > 100) {
             console.log("CodeforcesSync (Tab): Found via largest <pre>");
             return largest.innerText;
           }
@@ -206,9 +306,6 @@ async function fetchSourceCode(sub: Submission): Promise<string | null> {
       },
     });
 
-    // The injected func is now synchronous; we removed the inner async polling
-    // loop because the 2-second stabilisation delay above already handles
-    // syntax-highlighter rendering. If this fails we simply retry next cycle.
     if (results?.[0]?.result) {
       console.log(
         `CodeforcesSync: [Extraction OK] Submission ${submissionId}`
@@ -227,17 +324,12 @@ async function fetchSourceCode(sub: Submission): Promise<string | null> {
     );
     return null;
   } finally {
-    // ✅ GUARANTEED tab cleanup — runs even if the catch re-throws or the
-    // timeout rejects, because `finally` always executes regardless.
     if (tab?.id != null) {
-      chrome.tabs.remove(tab.id).catch(() => {
-        // Tab may already be gone (user closed it). Silently ignore.
-      });
+      chrome.tabs.remove(tab.id).catch(() => {});
     }
   }
 }
 
-// ─── UTF-8 → Base64 ───────────────────────────────────────────────────────────
 function utf8ToBase64(str: string): string {
   const bytes = new TextEncoder().encode(str);
   let binary = "";
@@ -247,7 +339,6 @@ function utf8ToBase64(str: string): string {
   return btoa(binary);
 }
 
-// ─── Streak updater ───────────────────────────────────────────────────────────
 async function updateStreak(): Promise<void> {
   try {
     const settings = await getSettings();
@@ -259,14 +350,12 @@ async function updateStreak(): Promise<void> {
       solvedDays.push(todayStr);
     }
 
-    // Prune entries older than 30 days to keep storage clean
     const thirtyDaysAgo = new Date(now);
     thirtyDaysAgo.setDate(now.getDate() - 30);
     const cutoffStr = toLocalDateString(thirtyDaysAgo);
     const updatedSolvedDays = solvedDays.filter((d) => d >= cutoffStr).sort();
 
     if (settings.lastAcceptedDate === todayStr) {
-      // Already updated streak today; just refresh solvedDays
       await saveSettings({ solvedDays: updatedSolvedDays });
       return;
     }
@@ -292,20 +381,12 @@ async function updateStreak(): Promise<void> {
   }
 }
 
-// ─── Date helper ──────────────────────────────────────────────────────────────
-/** Returns YYYY-MM-DD in local time (avoids UTC drift). */
 function toLocalDateString(date: Date): string {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
     .toISOString()
     .split("T")[0];
 }
 
-// ─── Exponential backoff calculator ──────────────────────────────────────────
-/**
- * Records a new API failure and returns the number of milliseconds the next
- * sync attempt should be delayed.  Uses a capped exponential backoff strategy:
- *   delay = min(BASE * 2^failures, CAP)
- */
 function recordApiFailure(reason: string): number {
   retryState.consecutiveFailures = Math.min(
     retryState.consecutiveFailures + 1,
@@ -330,7 +411,6 @@ function recordApiFailure(reason: string): number {
   return delayMs;
 }
 
-/** Resets the backoff counter after a successful API response. */
 function recordApiSuccess(): void {
   if (retryState.consecutiveFailures > 0) {
     console.log(
@@ -343,40 +423,35 @@ function recordApiSuccess(): void {
   retryState.backoffUntil = 0;
 }
 
-// ─── Resilient CF API fetch ───────────────────────────────────────────────────
+interface FetchResult {
+  ok: boolean;
+  status: number;
+  body: unknown;
+  isHtml: boolean;
+  error?: string;
+}
+
 /**
- * Fetches `https://codeforces.com/api/user.status` with up to `maxAttempts`
- * retries.  Each attempt is injected into an authenticated Codeforces tab so
- * the request carries the user's session cookies, bypassing Cloudflare's
- * bot-detection checks.
- *
- * Failure modes handled:
- *  • Network / DNS errors   → retried
- *  • Cloudflare HTML page   → detected via Content-Type, retried after 6 s
- *  • CF API status !== 'OK' → logged with comment field, retried
- *  • HTTP 429 / 503         → 10 s cooldown, retried
- *  • HTTP 403               → logged, retried (may be transient)
- *
- * Returns the parsed result array on success, or `null` after all attempts.
+ * Tier 1: Fetches via Official API (Injected Tab)
+ * Fail-fast on 502, 503, 429 status codes directly to Tier 2.
  */
-async function fetchCodeforcesSubmissions(
+async function fetchCodeforcesSubmissionsTier1(
   cfTabId: number,
-  apiUrl: string,
-  maxAttempts: number = 3
+  apiUrl: string
 ): Promise<Submission[] | null> {
+  const maxAttempts = 2;
   let lastError = "unknown";
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const attemptDelay = attempt > 1 ? 4000 * (attempt - 1) : 0;
+    const attemptDelay = attempt > 1 ? 4000 : 0;
     if (attemptDelay > 0) {
       console.log(
-        `CodeforcesSync: [CF API] Retry ${attempt}/${maxAttempts} — waiting ${attemptDelay / 1000}s…`
+        `CodeforcesSync: [API Tier 1] Retry ${attempt}/${maxAttempts} — waiting ${attemptDelay / 1000}s…`
       );
       await new Promise((r) => setTimeout(r, attemptDelay));
     }
 
     try {
-      // Verify the tab still exists before injecting
       let tabStillExists = true;
       try {
         await chrome.tabs.get(cfTabId);
@@ -386,17 +461,14 @@ async function fetchCodeforcesSubmissions(
 
       if (!tabStillExists) {
         lastError = "CF tab closed during retry";
-        console.warn(`CodeforcesSync: [CF API] ${lastError}. Aborting retries.`);
-        break;
+        console.warn(
+          `CodeforcesSync: [API Tier 1] ${lastError}. Failing over to Tier 2.`
+        );
+        return null;
       }
 
-      // Inject the fetch into the CF tab so it piggybacks on the user session.
       const injectionResult = await chrome.scripting.executeScript({
         target: { tabId: cfTabId },
-        // The function runs in the page context and must be self-contained.
-        // It is declared async so we can use await for fetch() inside it.
-        // The FetchResult shape is guaranteed at runtime even though TypeScript
-        // cannot statically verify the return type of an injected async func.
         func: async (url: string) => {
           try {
             const res = await fetch(url, {
@@ -442,74 +514,83 @@ async function fetchCodeforcesSubmissions(
         args: [apiUrl],
       });
 
-      const raw = injectionResult?.[0]?.result;
+      const raw = (injectionResult?.[0]?.result) as FetchResult | undefined;
 
       if (!raw) {
         lastError = "Script injection returned no result";
-        console.error(`CodeforcesSync: [CF API] Attempt ${attempt} — ${lastError}`);
+        console.error(
+          `CodeforcesSync: [API Tier 1] Attempt ${attempt} — ${lastError}`
+        );
         continue;
       }
 
       if (raw.error && !raw.ok) {
         lastError = `Network error: ${raw.error}`;
-        console.error(`CodeforcesSync: [CF API] Attempt ${attempt} — ${lastError}`);
+        console.error(
+          `CodeforcesSync: [API Tier 1] Attempt ${attempt} — ${lastError}`
+        );
         continue;
       }
 
       if (raw.isHtml) {
         lastError = `Cloudflare HTML challenge (HTTP ${raw.status})`;
         console.warn(
-          `CodeforcesSync: [CF API] Attempt ${attempt} — ${lastError}. ` +
-            "The CF tab may need manual interaction to solve the CAPTCHA."
+          `CodeforcesSync: [API Tier 1] Attempt ${attempt} — ${lastError}. Failing over to Tier 2.`
         );
-        await new Promise((r) => setTimeout(r, 6000));
-        continue;
+        return null;
       }
 
       if (!raw.ok) {
-        lastError = `HTTP ${raw.status}`;
-        if (raw.status === 429 || raw.status === 503) {
+        if (raw.status === 429 || raw.status === 503 || raw.status === 502) {
           console.warn(
-            `CodeforcesSync: [CF API] Attempt ${attempt} — Rate limited (${raw.status}). Backing off 10 s…`
+            `CodeforcesSync: [API Tier 1] Attempt ${attempt} — HTTP ${raw.status}. Fail-fast to Tier 2.`
           );
-          await new Promise((r) => setTimeout(r, 10_000));
-        } else {
-          console.error(`CodeforcesSync: [CF API] Attempt ${attempt} — ${lastError}`);
+          return null;
         }
+        lastError = `HTTP ${raw.status}`;
+        console.error(
+          `CodeforcesSync: [API Tier 1] Attempt ${attempt} — ${lastError}`
+        );
         continue;
       }
 
-      // ── Validate CF API response structure ─────────────────────────────────
       const data = raw.body;
 
       if (data === null || typeof data !== "object" || Array.isArray(data)) {
         lastError = "Response body is not a plain object";
-        console.error(`CodeforcesSync: [CF API] Attempt ${attempt} — ${lastError}`, data);
+        console.error(
+          `CodeforcesSync: [API Tier 1] Attempt ${attempt} — ${lastError}`,
+          data
+        );
         continue;
       }
 
-      // Narrow the type now that we know it's a plain object
       const cfResponse = data as Record<string, unknown>;
 
       if (cfResponse["status"] !== "OK") {
-        const comment = typeof cfResponse["comment"] === "string"
-          ? cfResponse["comment"]
-          : "none";
+        const comment =
+          typeof cfResponse["comment"] === "string"
+            ? cfResponse["comment"]
+            : "none";
         lastError = `CF API status="${cfResponse["status"]}" comment="${comment}"`;
-        console.error(`CodeforcesSync: [CF API] Attempt ${attempt} — ${lastError}`);
+        console.error(
+          `CodeforcesSync: [API Tier 1] Attempt ${attempt} — ${lastError}`
+        );
         continue;
       }
 
       if (!Array.isArray(cfResponse["result"])) {
         lastError = "CF API result field is not an array";
-        console.error(`CodeforcesSync: [CF API] Attempt ${attempt} — ${lastError}`, data);
+        console.error(
+          `CodeforcesSync: [API Tier 1] Attempt ${attempt} — ${lastError}`,
+          data
+        );
         continue;
       }
 
-      // ── SUCCESS ────────────────────────────────────────────────────────────
       const resultArray = cfResponse["result"] as Submission[];
       console.log(
-        `CodeforcesSync: [CF API] Attempt ${attempt} — SUCCESS. ` +
+        `CodeforcesSync: [API Tier 1] Attempt ${attempt} — SUCCESS. ` +
           `Received ${resultArray.length} submission(s).`
       );
       recordApiSuccess();
@@ -517,47 +598,71 @@ async function fetchCodeforcesSubmissions(
     } catch (e: unknown) {
       lastError = e instanceof Error ? e.message : String(e);
       console.error(
-        `CodeforcesSync: [CF API] Attempt ${attempt} — Unexpected exception: ${lastError}`
+        `CodeforcesSync: [API Tier 1] Attempt ${attempt} — Unexpected exception: ${lastError}`
       );
     }
   }
 
-  // All attempts exhausted
-  recordApiFailure(lastError);
-  console.error(
-    `CodeforcesSync: [CF API] All ${maxAttempts} attempts failed. ` +
-      `Last error: "${lastError}". ` +
-      `Consecutive failures: ${retryState.consecutiveFailures}. ` +
-      `Cooldown until ${new Date(retryState.backoffUntil).toLocaleTimeString()}.`
+  console.warn(
+    `CodeforcesSync: [API Tier 1] All ${maxAttempts} attempts failed. ` +
+      `Last error: "${lastError}". Attempting Tier 2 (RSS).`
   );
   return null;
 }
 
-// ─── Main sync loop ───────────────────────────────────────────────────────────
 /**
- * Fetches the latest accepted submissions from the Codeforces API,
- * extracts their source code via a background tab, and pushes to GitHub.
+ * Dual-Tier Fetching:
+ *   Tier 1 (API via Injected Tab) → Tier 2 (RSS/Atom Feed)
  *
- * Protected by `isSyncing` to prevent concurrent overlapping executions.
- * Also respects the exponential backoff timer to avoid hammering CF after
- * repeated failures.
- *
- * Storage write ordering guarantee
- * ─────────────────────────────────
- * `syncedSubmissions` is written immediately after each successful GitHub push
- * (not batched at the end of the loop) so a mid-loop crash or SW termination
- * never causes double-uploads of already-committed submissions.
+ * If Tier 1 succeeds, use its result.
+ * If Tier 1 fails or no CF tab is open, attempt Tier 2.
+ * Only activate exponential backoff if BOTH tiers fail.
  */
+async function fetchCodeforcesSubmissionsDualTier(
+  cfTabId: number | null,
+  handle: string,
+  apiUrl: string
+): Promise<Submission[] | null> {
+  if (cfTabId !== null) {
+    console.log("CodeforcesSync: [Dual Tier] Attempting Tier 1 (Official API)…");
+    const tier1Result = await fetchCodeforcesSubmissionsTier1(
+      cfTabId,
+      apiUrl
+    );
+    if (tier1Result !== null) {
+      return tier1Result;
+    }
+  } else {
+    console.log(
+      "CodeforcesSync: [Dual Tier] No CF tab open. Skipping Tier 1, attempting Tier 2 (RSS).…"
+    );
+  }
+
+  console.log("CodeforcesSync: [Dual Tier] Attempting Tier 2 (RSS Feed)…");
+  const tier2Result = await fetchRssFeed(handle);
+  if (tier2Result !== null) {
+    recordApiSuccess();
+    return tier2Result;
+  }
+
+  console.error(
+    "CodeforcesSync: [Dual Tier] Both Tier 1 (API) and Tier 2 (RSS) failed. " +
+      "Activating exponential backoff."
+  );
+  recordApiFailure("Dual-tier fetch: both API and RSS failed");
+  return null;
+}
+
 async function syncSolutions(): Promise<void> {
-  // ── Concurrency guard ─────────────────────────────────────────────────────
   if (isSyncing) {
     console.log("CodeforcesSync: Sync already in progress, skipping.");
     return;
   }
 
-  // ── Exponential backoff guard ─────────────────────────────────────────────
   if (retryState.backoffUntil > Date.now()) {
-    const waitSec = Math.round((retryState.backoffUntil - Date.now()) / 1000);
+    const waitSec = Math.round(
+      (retryState.backoffUntil - Date.now()) / 1000
+    );
     console.log(
       `CodeforcesSync: [Backoff] In cooldown — ${waitSec}s remaining ` +
         `(last failure: "${retryState.lastFailureReason}"). Skipping this tick.`
@@ -572,7 +677,6 @@ async function syncSolutions(): Promise<void> {
     const now = new Date();
     const todayStr = toLocalDateString(now);
 
-    // ── Streak broken check ───────────────────────────────────────────────────
     const lastAccepted = settings.lastAcceptedDate;
     if (lastAccepted) {
       const yesterday = new Date(now);
@@ -588,7 +692,6 @@ async function syncSolutions(): Promise<void> {
       }
     }
 
-    // ── Credential guard ──────────────────────────────────────────────────────
     if (
       !settings.githubToken ||
       !settings.githubRepo ||
@@ -601,40 +704,34 @@ async function syncSolutions(): Promise<void> {
       return;
     }
 
-    // ── CF tab guard ──────────────────────────────────────────────────────────
-    // Require an open Codeforces tab to piggyback on its authenticated session.
-    // This is the core bypass for Cloudflare bot protection: the request is
-    // made from inside a tab that already has valid CF session cookies.
     const tabs = await chrome.tabs.query({ url: "*://*.codeforces.com/*" });
-    if (tabs.length === 0 || !tabs[0].id) {
+    const cfTabId = tabs.length > 0 && tabs[0].id ? tabs[0].id : null;
+
+    if (cfTabId !== null) {
+      const readyTab = tabs.find((t) => t.status === "complete") ?? tabs[0];
       console.log(
-        "CodeforcesSync: No Codeforces tab open — skipping to avoid Cloudflare 403."
+        `CodeforcesSync: Using CF tab #${readyTab.id} ` +
+          `(url: ${readyTab.url?.slice(0, 60)}…) for API fetch.`
       );
-      return;
+    } else {
+      console.log(
+        "CodeforcesSync: No Codeforces tab open. Will attempt RSS feed fallback."
+      );
     }
 
-    // Prefer a tab that is not currently loading to minimise injection risk.
-    const readyTab = tabs.find((t) => t.status === "complete") ?? tabs[0];
-    const cfTabId = readyTab.id!;
-
-    console.log(
-      `CodeforcesSync: Using CF tab #${cfTabId} ` +
-        `(url: ${readyTab.url?.slice(0, 60)}…) for API fetch.`
-    );
-
-    // ── Fetch submissions ─────────────────────────────────────────────────────
     const handle = encodeURIComponent(settings.codeforcesHandle.trim());
-    // Fetch 30 most recent submissions to reduce misses during backoff windows.
     const apiUrl = `https://codeforces.com/api/user.status?handle=${handle}&from=1&count=30`;
 
-    const submissions = await fetchCodeforcesSubmissions(cfTabId, apiUrl, 3);
+    const submissions = await fetchCodeforcesSubmissionsDualTier(
+      cfTabId,
+      settings.codeforcesHandle.trim(),
+      apiUrl
+    );
 
     if (!submissions) {
-      // fetchCodeforcesSubmissions already logged the failure and updated backoff.
       return;
     }
 
-    // ── Filter to unsynced accepted submissions ────────────────────────────────
     const acceptedSubmissions = submissions.filter(
       (sub) => sub.verdict === "OK"
     );
@@ -644,19 +741,18 @@ async function syncSolutions(): Promise<void> {
       return;
     }
 
-    // Read synced list once; write it back after every successful push.
-    // This is deliberate: reading once then writing incrementally is correct
-    // because isSyncing prevents concurrent sync runs from racing on this array.
     const synced = [...(settings.syncedSubmissions || [])];
 
-    // Process oldest-first so streak chronology is correct
     for (const sub of [...acceptedSubmissions].reverse()) {
       const submissionId = sub.id.toString();
 
       if (synced.includes(submissionId)) continue;
 
-      // Guard against malformed API responses that omit required fields
-      if (!sub.problem?.index || !sub.problem?.name || !sub.programmingLanguage) {
+      if (
+        !sub.problem?.index ||
+        !sub.problem?.name ||
+        !sub.programmingLanguage
+      ) {
         console.error(
           `CodeforcesSync: Submission ${submissionId} has malformed problem data — skipping.`,
           sub
@@ -680,7 +776,6 @@ async function syncSolutions(): Promise<void> {
         console.error(
           `CodeforcesSync: Source extraction failed for ${submissionId}. Will retry next cycle.`
         );
-        // Do NOT add to synced list — will be retried next alarm tick.
         continue;
       }
 
@@ -710,7 +805,6 @@ async function syncSolutions(): Promise<void> {
       if (success) {
         console.log(`CodeforcesSync: ✅ Synced ${submissionId} to GitHub`);
         synced.push(submissionId);
-        // Write immediately so a crash mid-loop doesn't re-upload this one.
         await saveSettings({ syncedSubmissions: synced });
         await updateStreak();
         chrome.runtime.sendMessage({ type: "SYNC_SUCCESS" }).catch(() => {});
@@ -718,16 +812,13 @@ async function syncSolutions(): Promise<void> {
         console.error(
           `CodeforcesSync: ❌ GitHub push failed for ${submissionId} — will retry next cycle.`
         );
-        // Leave out of synced list so we retry the GitHub push next cycle.
       }
 
-      // Throttle to respect GitHub secondary rate limits (1 commit/2.5 s)
       await new Promise((r) => setTimeout(r, 2500));
     }
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("CodeforcesSync: Unexpected error in sync loop:", msg);
-    // Record the unexpected failure so backoff kicks in to prevent rapid loops.
     recordApiFailure(`Unexpected error: ${msg}`);
   } finally {
     isSyncing = false;

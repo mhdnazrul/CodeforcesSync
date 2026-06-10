@@ -24,7 +24,8 @@
   ],
   "host_permissions": [
     "https://api.github.com/*",
-    "*://*.codeforces.com/*"
+    "https://codeforces.com/*",
+    "http://codeforces.com/*"
   ],
   "background": {
     "service_worker": "src/background/background.ts"

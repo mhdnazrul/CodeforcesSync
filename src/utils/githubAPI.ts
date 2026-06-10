@@ -6,7 +6,40 @@ export interface GithubUser {
   avatar_url: string;
 }
 
-// ─── Exponential backoff helper ───────────────────────────────────────────────
+interface RateLimitInfo {
+  remaining: number;
+  reset: number;
+  limit: number;
+}
+
+/**
+ * Extracts rate limit info from GitHub response headers.
+ * Returns null if headers are absent or unparseable.
+ */
+function parseRateLimitHeaders(res: Response): RateLimitInfo | null {
+  const remaining = res.headers.get("x-ratelimit-remaining");
+  const reset = res.headers.get("x-ratelimit-reset");
+  const limit = res.headers.get("x-ratelimit-limit");
+
+  if (!remaining || !reset || !limit) {
+    return null;
+  }
+
+  const parsedRemaining = parseInt(remaining, 10);
+  const parsedReset = parseInt(reset, 10);
+  const parsedLimit = parseInt(limit, 10);
+
+  if (isNaN(parsedRemaining) || isNaN(parsedReset) || isNaN(parsedLimit)) {
+    return null;
+  }
+
+  return {
+    remaining: parsedRemaining,
+    reset: parsedReset,
+    limit: parsedLimit,
+  };
+}
+
 /**
  * Waits for the duration indicated by the GitHub `x-ratelimit-reset` header
  * (epoch seconds), or falls back to `defaultDelayMs` if the header is absent.
@@ -17,9 +50,9 @@ async function waitForRateLimitReset(
 ): Promise<void> {
   const resetHeader = res.headers.get("x-ratelimit-reset");
   if (resetHeader) {
-    const resetAt = parseInt(resetHeader, 10) * 1000; // convert to ms
+    const resetAt = parseInt(resetHeader, 10) * 1000;
     const now = Date.now();
-    const delay = Math.max(resetAt - now + 1000, 1000); // +1 s buffer
+    const delay = Math.max(resetAt - now + 1000, 1000);
     console.warn(
       `CodeforcesSync: [GitHub] Rate limit hit. Waiting ${Math.round(delay / 1000)}s ` +
         `until reset at ${new Date(resetAt).toLocaleTimeString()}.`
@@ -37,30 +70,60 @@ async function waitForRateLimitReset(
 export class GithubHandler {
   private readonly baseUrl = "https://api.github.com";
 
-  /** Reads the GitHub token from storage. */
+  /**
+   * Reads the GitHub token from storage.
+   * Throws if storage read fails.
+   */
   async loadToken(): Promise<string | null> {
-    const settings = await getSettings();
-    return settings.githubToken || null;
+    try {
+      const settings = await getSettings();
+      return settings.githubToken || null;
+    } catch (e) {
+      console.error("CodeforcesSync: loadToken storage error:", e);
+      throw e;
+    }
   }
 
-  /** Persists token + username after successful auth. */
+  /**
+   * Persists token + username after successful auth.
+   * Throws if storage write fails.
+   */
   async saveToken(token: string, username: string): Promise<void> {
-    await saveSettings({ githubToken: token, githubUsername: username });
+    try {
+      await saveSettings({ githubToken: token, githubUsername: username });
+    } catch (e) {
+      console.error("CodeforcesSync: saveToken storage error:", e);
+      throw e;
+    }
   }
 
-  /** Clears all settings (logout). */
+  /**
+   * Clears all settings (logout).
+   * Throws if storage clear fails.
+   */
   async logout(): Promise<void> {
-    await clearSettings();
+    try {
+      await clearSettings();
+    } catch (e) {
+      console.error("CodeforcesSync: logout storage error:", e);
+      throw e;
+    }
   }
 
   /**
    * Authenticated fetch with exponential backoff for GitHub rate limits.
    *
    * Retry policy:
-   *   • 401 Unauthorized  → auto-logout, throw (no retry — invalid token)
+   *   • 401 Unauthorized  → auto-logout, dispatch TOKEN_EXPIRED, throw (no retry — invalid token)
    *   • 403 / 429 with x-ratelimit-remaining=0 → wait until reset, retry
    *   • 5xx server errors → retry with backoff up to `maxAttempts`
    *   • Other non-OK      → returned as-is (caller decides)
+   *
+   * Mandatory headers sent on every request:
+   *   • X-GitHub-Api-Version: 2022-11-28 (stable API version)
+   *   • Authorization: Bearer {token}
+   *   • Accept: application/vnd.github+json
+   *   • Content-Type: application/json
    *
    * @param url          GitHub API endpoint URL
    * @param options      fetch RequestInit (method, body, etc.)
@@ -80,27 +143,27 @@ export class GithubHandler {
     headers.set("Accept", "application/vnd.github+json");
     headers.set("X-GitHub-Api-Version", "2022-11-28");
 
+    let lastError: unknown = null;
+
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
         const res = await fetch(url, { ...options, headers });
 
-        // ── 401 Unauthorized — invalid / expired token ────────────────────
         if (res.status === 401) {
           await this.logout();
-          // Notify the popup so it can display a visible warning to the user.
-          // The .catch() is intentional: the popup may not be open.
           chrome.runtime.sendMessage({ type: "TOKEN_EXPIRED" }).catch(() => {});
-          throw new Error("UNAUTHORIZED — GitHub token is invalid or expired. Please re-enter your token.");
+          throw new Error(
+            "UNAUTHORIZED — GitHub token is invalid or expired. Please re-enter your token."
+          );
         }
 
-        // ── Rate limited (403 + quota exhausted, or 429) ──────────────────
         if (
           (res.status === 403 || res.status === 429) &&
           res.headers.get("x-ratelimit-remaining") === "0"
         ) {
           if (attempt < maxAttempts) {
             await waitForRateLimitReset(res);
-            continue; // retry after waiting
+            continue;
           }
           throw new Error(
             `RATE_LIMIT_EXCEEDED — GitHub API quota exhausted. ` +
@@ -108,7 +171,6 @@ export class GithubHandler {
           );
         }
 
-        // ── 5xx server errors — retry with backoff ────────────────────────
         if (res.status >= 500 && attempt < maxAttempts) {
           const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 30_000);
           console.warn(
@@ -119,41 +181,42 @@ export class GithubHandler {
           continue;
         }
 
-        // ── All other responses (success or client errors) — return as-is ─
         return res;
-      } catch (e: any) {
-        // Re-throw non-retryable errors immediately
+      } catch (e: unknown) {
+        lastError = e;
+        const msg =
+          e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+
         if (
-          e.message?.startsWith("UNAUTHORIZED") ||
-          e.message?.startsWith("RATE_LIMIT_EXCEEDED") ||
-          e.message?.startsWith("No GitHub token")
+          msg.startsWith("UNAUTHORIZED") ||
+          msg.startsWith("RATE_LIMIT_EXCEEDED") ||
+          msg.startsWith("No GitHub token")
         ) {
           throw e;
         }
 
-        // Network-level error — retry with backoff
         if (attempt < maxAttempts) {
           const backoffMs = Math.min(3000 * attempt, 15_000);
           console.warn(
             `CodeforcesSync: [GitHub] Network error on attempt ${attempt}/${maxAttempts}: ` +
-              `${e.message}. Retrying in ${backoffMs / 1000}s…`
+              `${msg}. Retrying in ${backoffMs / 1000}s…`
           );
           await new Promise((r) => setTimeout(r, backoffMs));
           continue;
         }
-
-        // Final attempt also failed
-        console.error(
-          `CodeforcesSync: [GitHub] All ${maxAttempts} fetch attempts failed. Last error: ${e.message}`
-        );
-        throw e;
       }
     }
 
-    // Should never reach here, but satisfies TypeScript
-    throw new Error(
-      `CodeforcesSync: [GitHub] fetchWithRateLimit exhausted all attempts for ${url}`
+    const lastMsg =
+      lastError instanceof Error
+        ? lastError.message
+        : typeof lastError === "string"
+          ? lastError
+          : String(lastError);
+    console.error(
+      `CodeforcesSync: [GitHub] All ${maxAttempts} fetch attempts failed. Last error: ${lastMsg}`
     );
+    throw lastError || new Error("Fetch failed with no error details");
   }
 
   /**
@@ -173,10 +236,11 @@ export class GithubHandler {
         console.error(
           `CodeforcesSync: [GitHub] checkFileExists HTTP ${res.status} for "${path}"`
         );
-        return null; // treat unknown errors as "file not found" to attempt a create
+        return null;
       }
-      const data = await res.json();
-      return data.sha ?? null;
+      const data = (await res.json()) as Record<string, unknown>;
+      const sha = data["sha"];
+      return typeof sha === "string" ? sha : null;
     } catch (e) {
       console.error("CodeforcesSync: checkFileExists error:", e);
       throw e;
@@ -185,7 +249,7 @@ export class GithubHandler {
 
   /**
    * Creates or updates a file in the repo via the GitHub Contents API.
-   * Returns true on success.
+   * Returns true on success, false otherwise.
    */
   async uploadFile(
     username: string,
@@ -198,13 +262,17 @@ export class GithubHandler {
       const sha = await this.checkFileExists(username, repo, path);
       const url = `${this.baseUrl}/repos/${username}/${repo}/contents/${path}`;
 
+      const body: Record<string, unknown> = {
+        message,
+        content: contentBase64,
+      };
+      if (sha) {
+        body["sha"] = sha;
+      }
+
       const res = await this.fetchWithRateLimit(url, {
         method: "PUT",
-        body: JSON.stringify({
-          message,
-          content: contentBase64,
-          ...(sha ? { sha } : {}),
-        }),
+        body: JSON.stringify(body),
       });
 
       if (res.status === 200 || res.status === 201) return true;
@@ -214,11 +282,10 @@ export class GithubHandler {
         `CodeforcesSync: [GitHub] Upload error — HTTP ${res.status} for "${path}" | ${errText}`
       );
       return false;
-    } catch (e: any) {
-      console.error(
-        `CodeforcesSync: [GitHub] Upload exception for "${path}":`,
-        e?.message || e
-      );
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : typeof e === "string" ? e : String(e);
+      console.error(`CodeforcesSync: [GitHub] Upload exception for "${path}": ${msg}`);
       return false;
     }
   }
