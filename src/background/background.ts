@@ -1,6 +1,7 @@
 import { GithubHandler } from "../utils/githubAPI";
 import { getSettings, saveSettings } from "../utils/storage";
 import { generateFilePath } from "../utils/formatters";
+import type { Submission } from "../shared/types/codeforces";
 
 const github = new GithubHandler();
 
@@ -64,19 +65,6 @@ function generateSubmissionUrl(sub: Submission): string {
     `CodeforcesSync: Contest submission ${submissionId} (contest ${contestId ?? "n/a"})`
   );
   return `https://codeforces.com/contest/${contestId}/submission/${submissionId}`;
-}
-
-interface CfProblem {
-  index: string;
-  name: string;
-}
-
-interface Submission {
-  id: number;
-  contestId?: number;
-  verdict: string;
-  programmingLanguage: string;
-  problem: CfProblem;
 }
 
 /**

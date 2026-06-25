@@ -8,8 +8,8 @@
 
 | Phase | Description | Risk | Dependencies |
 |---|---|---|---|
-| **01** | Shared utilities — extract pure functions to `shared/utils/` | Very Low | None |
-| **02** | Shared types — create `shared/types/` | Very Low | Phase 01 |
+| **01** | Shared utilities — extract pure functions to `shared/utils/` | Very Low | None | ✅ **Complete** |
+| **02** | Shared types — create `shared/types/` | Very Low | Phase 01 | ✅ **Complete** |
 | **03** | Browser abstraction — create `browser/` interfaces + Chrome adapter | Low | Phase 02 |
 | **04** | Storage abstraction — create `storage/` module with schema versioning | Low | Phase 03 |
 | **05** | Statistics extraction — streak, calendar to `statistics/` | Low | Phase 01 |
@@ -28,3 +28,11 @@
 - Each phase produces a committable, shippable state
 - Old files become re-export wrappers before deletion
 - No feature development during migration
+
+## Progress
+
+| Phase | Status |
+|---|---|
+| 01 — Shared utilities | ✅ Complete |
+| 02 — Shared types | ✅ Complete |
+| 03–12 | ⏳ Pending |
