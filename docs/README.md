@@ -23,6 +23,7 @@ Architecture and engineering reference for the CodeforcesSync browser extension.
 |---|---|---|
 | [Phase 01](phases/phase-01.md) | Pending | Shared utilities extraction |
 | Phase 02 | ✅ Complete | Shared types |
+| Phase 03 | ✅ Complete | Browser abstraction |
 | Phase 03 | Planned | Browser abstraction |
 | Phase 04 | Planned | Storage abstraction |
 | Phase 05 | Planned | Statistics module |
