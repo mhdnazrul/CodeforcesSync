@@ -6,40 +6,6 @@ export interface GithubUser {
   avatar_url: string;
 }
 
-interface RateLimitInfo {
-  remaining: number;
-  reset: number;
-  limit: number;
-}
-
-/**
- * Extracts rate limit info from GitHub response headers.
- * Returns null if headers are absent or unparseable.
- */
-function parseRateLimitHeaders(res: Response): RateLimitInfo | null {
-  const remaining = res.headers.get("x-ratelimit-remaining");
-  const reset = res.headers.get("x-ratelimit-reset");
-  const limit = res.headers.get("x-ratelimit-limit");
-
-  if (!remaining || !reset || !limit) {
-    return null;
-  }
-
-  const parsedRemaining = parseInt(remaining, 10);
-  const parsedReset = parseInt(reset, 10);
-  const parsedLimit = parseInt(limit, 10);
-
-  if (isNaN(parsedRemaining) || isNaN(parsedReset) || isNaN(parsedLimit)) {
-    return null;
-  }
-
-  return {
-    remaining: parsedRemaining,
-    reset: parsedReset,
-    limit: parsedLimit,
-  };
-}
-
 /**
  * Waits for the duration indicated by the GitHub `x-ratelimit-reset` header
  * (epoch seconds), or falls back to `defaultDelayMs` if the header is absent.

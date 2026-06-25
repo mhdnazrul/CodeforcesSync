@@ -9,6 +9,7 @@
     <a href="https://github.com/mhdnazrul/CodeforcesSync/pulls"><img src="https://img.shields.io/github/issues-pr/mhdnazrul/CodeforcesSync?style=for-the-badge&color=blue" alt="Pull Requests Badge"/></a>
     <a href="https://github.com/mhdnazrul/CodeforcesSync/issues"><img src="https://img.shields.io/github/issues/mhdnazrul/CodeforcesSync?style=for-the-badge&color=red" alt="Issues Badge"/></a>
     <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-success.svg?style=for-the-badge" alt="License Badge"/></a>
+    <a href="docs/"><img src="https://img.shields.io/badge/Docs-Architecture-blue.svg?style=for-the-badge" alt="Documentation Badge"/></a>
   </p>
 </div>
 
@@ -48,6 +49,17 @@ Whenever you receive an **"Accepted"** verdict on Codeforces, this extension aut
 - 🛡️ **Cloudflare Bot Bypass**: Intelligently utilizes your active Codeforces tab session to safely fetch code without triggering aggressive Cloudflare blockages.
 - 📁 **Custom Subdirectories**: Store submissions in a specific folder (like `solutions/`) by configuring custom repository paths natively from the popup.
 - ⏱️ **Smart API Throttling**: Safely manages GitHub Secondary Rate limits and Codeforces API limits behind the scenes using asynchronous delays.
+
+## 📚 Documentation
+
+Architecture and engineering documentation is available in the [`docs/`](docs/) directory:
+
+- **[Architecture](docs/ARCHITECTURE.md)** — Module design, dependency rules, data flow
+- **[Migration Plan](docs/AMS.md)** — 12-phase architecture migration specification
+- **[Engineering Constitution](docs/ENGINEERING_CONSTITUTION.md)** — Project rules for humans and AI
+- **[Architecture Decision Records](docs/ADR/)** — Design decisions and trade-offs
+
+---
 
 ## 🛠 Tech Stack
 
@@ -145,6 +157,7 @@ Once configured, the background service takes over!
 
 ```text
 CodeforcesSync/
+├── docs/                   # Architecture documentation
 ├── public/                 # Static extension assets (icons, manifest)
 ├── src/                    # Source code
 │   ├── background/         # Background Service Worker logic (API polling)

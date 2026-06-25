@@ -13,7 +13,7 @@ interface RetryState {
   backoffUntil: number;
 }
 
-let retryState: RetryState = {
+const retryState: RetryState = {
   consecutiveFailures: 0,
   lastFailureTime: 0,
   lastFailureReason: "",
@@ -77,12 +77,6 @@ interface Submission {
   verdict: string;
   programmingLanguage: string;
   problem: CfProblem;
-}
-
-interface CfApiResponse {
-  status: string;
-  result?: unknown[];
-  comment?: string;
 }
 
 /**
