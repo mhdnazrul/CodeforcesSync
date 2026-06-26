@@ -22,7 +22,7 @@ This document is the governing rulebook for all development on the CodeforcesSyn
 
 ## 2. Folder Responsibility Rules
 
-See `docs/ARCHITECTURE.md` for the complete folder responsibility matrix. Key rules:
+See `docs/Architecture.md` for the complete folder responsibility matrix. Key rules:
 
 - `github/`, `codeforces/`, `sync/`, `statistics/` — must not import from `browser/` or React
 - `background/` — must not contain pure business logic

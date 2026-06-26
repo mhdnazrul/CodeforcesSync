@@ -1,43 +1,47 @@
 # CodeforcesSync Documentation
 
-Architecture and engineering reference for the CodeforcesSync browser extension.
+## Table of Contents
 
-## Documents
+### Core Documentation
 
 | Document | Description |
-|---|---|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Module design, folder responsibilities, dependency rules, data flow diagrams, browser abstraction layer |
-| [AMS.md](AMS.md) | Architecture Migration Specification — 12-phase plan for migrating to the new architecture |
-| [ENGINEERING_CONSTITUTION.md](ENGINEERING_CONSTITUTION.md) | Project rules and standards for human and AI contributors |
+|----------|-------------|
+| [Architecture](Architecture.md) | Module design, data flow, dependency graph, key decisions |
+| [OAuth](OAuth.md) | GitHub OAuth flow, PKCE, security measures, threat model |
+| [GitHub Integration](GitHub-Integration.md) | GitHub REST API client, file upload, rate limiting, timeouts |
+| [Codeforces Integration](Codeforces-Integration.md) | Codeforces API, RSS feed, dual-tier source fetching |
+| [Sync Engine](Sync-Engine.md) | Sync cycle, deduplication, retry, error handling |
+| [Statistics](Statistics.md) | Streak calculation, weekly calendar, CF statistics |
+| [Caching](Caching.md) | Client-side caching strategy, TTLs, API throttling |
 
-## Architecture Decision Records
+### Operations
+
+| Document | Description |
+|----------|-------------|
+| [Deployment](Deployment.md) | OAuth broker deployment, environment variables, build and distribute |
+| [Development](Development.md) | Setup, build scripts, project structure, debugging |
+| [Release Guide](Release-Guide.md) | Versioning, release process, automated releases |
+
+### Reference
+
+| Document | Description |
+|----------|-------------|
+| [Repository Validation](Repository-Validation.md) | URL normalization, input validation, accepted formats |
+| [Security](Security.md) | Token storage, OAuth security, permissions, threat model |
+| [Troubleshooting](Troubleshooting.md) | Common issues, debugging guides |
+| [FAQ](FAQ.md) | Frequently asked questions |
+| [Roadmap](Roadmap.md) | Planned features and improvements |
+
+### Engineering
+
+| Document | Description |
+|----------|-------------|
+| [Engineering Constitution](ENGINEERING_CONSTITUTION.md) | Project rules and standards for contributors |
+| [Architecture Migration](AMS.md) | 12-phase migration plan (completed) |
+
+### Architecture Decision Records
 
 | ADR | Decision |
-|---|---|
+|-----|----------|
 | [ADR/0001-browser-adapter.md](ADR/0001-browser-adapter.md) | Browser API abstraction via `BrowserAdapter` interface |
 | [ADR/0002-storage-abstraction.md](ADR/0002-storage-abstraction.md) | Storage module with schema versioning and migrations |
-
-## Migration Phases
-
-| Phase | Status | Description |
-|---|---|---|---|
-| Phase 01 | ✅ Complete | Shared utilities |
-| Phase 02 | ✅ Complete | Shared types |
-| Phase 03 | ✅ Complete | Browser abstraction |
-| Phase 04 | ✅ Complete | Storage abstraction |
-| Phase 05 | ✅ Complete | Statistics module |
-| Phase 06 | ✅ Complete | Codeforces module |
-| Phase 07 | Planned | GitHub module |
-| Phase 08 | Planned | Sync engine |
-| Phase 09 | Planned | Background service split |
-| Phase 10 | Planned | Content script split |
-| Phase 11 | Planned | React component split |
-| Phase 12 | Planned | Cleanup |
-
-## Directories
-
-- `ADR/` — Architecture Decision Records
-- `phases/` — Per-phase execution plans
-- `decisions/` — Future design decisions
-- `diagrams/` — Architecture diagrams
-- `changelog/` — Release changelogs
