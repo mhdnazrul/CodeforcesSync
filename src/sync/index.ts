@@ -142,13 +142,15 @@ async function updateStreak(storage: SyncStorage): Promise<void> {
       settings.currentStreak,
       settings.lastAcceptedDate,
       settings.solvedDays,
+      settings.bestStreak,
     );
     await storage.saveSettings({
       currentStreak: result.newStreak,
+      bestStreak: result.newBestStreak,
       lastAcceptedDate: result.newLastAcceptedDate,
       solvedDays: result.updatedSolvedDays,
     });
-    console.log(`CodeforcesSync: Streak updated → ${result.newStreak}`);
+    console.log(`CodeforcesSync: Streak updated → ${result.newStreak} (best: ${result.newBestStreak})`);
   } catch (e) {
     console.error("CodeforcesSync: Streak update error", e);
   }

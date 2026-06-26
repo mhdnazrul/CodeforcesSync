@@ -35,7 +35,7 @@ function buildStats(s: AppSettings): Stats {
   const rawWeekly = getWeeklyProgress(s.solvedDays);
   return {
     currentStreak: s.currentStreak,
-    bestStreak: 0,
+    bestStreak: s.bestStreak || 0,
     weeklyProgress: rawWeekly.map((d, i) => ({ ...d, day: SHORT_DAY_LABELS[i] })),
     solvedPieData: [],
     submissions: { tle: 0, wa: 0, rte: 0, mle: 0 },

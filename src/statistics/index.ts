@@ -2,6 +2,7 @@ import { toLocalDateString } from "../shared/utils/date";
 
 export interface StreakResult {
   newStreak: number;
+  newBestStreak: number;
   newLastAcceptedDate: string;
   updatedSolvedDays: string[];
 }
@@ -10,6 +11,7 @@ export function computeStreak(
   currentStreak: number,
   lastAcceptedDate: string | null,
   solvedDays: string[],
+  currentBestStreak: number = 0,
   today: Date = new Date(),
 ): StreakResult {
   const todayStr = toLocalDateString(today);
@@ -27,6 +29,7 @@ export function computeStreak(
   if (lastAcceptedDate === todayStr) {
     return {
       newStreak: currentStreak,
+      newBestStreak: Math.max(currentBestStreak, currentStreak),
       newLastAcceptedDate: todayStr,
       updatedSolvedDays,
     };
@@ -43,6 +46,7 @@ export function computeStreak(
 
   return {
     newStreak,
+    newBestStreak: Math.max(currentBestStreak, newStreak),
     newLastAcceptedDate: todayStr,
     updatedSolvedDays,
   };

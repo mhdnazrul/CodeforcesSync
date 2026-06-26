@@ -7,6 +7,7 @@ export interface AppSettings {
   useSubdirectory: boolean;
   subdirectoryName: string;
   currentStreak: number;
+  bestStreak: number;
   lastAcceptedDate: string | null;
   codeforcesHandle: string;
   syncedSubmissions: string[];
@@ -20,6 +21,7 @@ export const defaultSettings: AppSettings = {
   useSubdirectory: false,
   subdirectoryName: "solutions",
   currentStreak: 0,
+  bestStreak: 0,
   lastAcceptedDate: null,
   codeforcesHandle: "",
   syncedSubmissions: [],
