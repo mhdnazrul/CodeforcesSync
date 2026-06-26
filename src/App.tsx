@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { getSettings, saveSettings, defaultSettings } from "./utils/storage";
+import { getWeeklyProgress } from "./statistics";
+import { toLocalDateString } from "./shared/utils/date";
 import type { AppSettings } from "./utils/storage";
 import "./index.css";
-
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // ─── Header icons ──────────────────────────────────────────────────────────────
 function HeaderIcons({
@@ -81,30 +81,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
   );
 }
 
-// ─── Local date helper (mirrors background.ts) ─────────────────────────────────
-function toLocalDateString(date: Date): string {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .split("T")[0];
-}
 
-// ─── Weekly progress ───────────────────────────────────────────────────────────
-function getWeeklyProgress(solvedDays: string[] = []) {
-  const now = new Date();
-  const currentDay = now.getDay(); // 0 = Sunday
-  return DAYS.map((day, i) => {
-    const date = new Date(now);
-    date.setDate(now.getDate() - (currentDay - i));
-    const dateStr = toLocalDateString(date);
-    return {
-      day,
-      dateStr,
-      solved: solvedDays.includes(dateStr),
-      isFuture: date > now,
-      isToday: i === currentDay,
-    };
-  });
-}
 
 // ─── App ───────────────────────────────────────────────────────────────────────
 export default function App() {

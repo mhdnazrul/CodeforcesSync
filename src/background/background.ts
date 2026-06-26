@@ -1,6 +1,8 @@
 import { GithubHandler } from "../utils/githubAPI";
 import { getSettings, saveSettings } from "../utils/storage";
 import { generateFilePath } from "../utils/formatters";
+import { computeStreak } from "../statistics";
+import { toLocalDateString } from "../shared/utils/date";
 import type { Submission } from "../shared/types/codeforces";
 
 const github = new GithubHandler();
@@ -324,49 +326,20 @@ function utf8ToBase64(str: string): string {
 async function updateStreak(): Promise<void> {
   try {
     const settings = await getSettings();
-    const now = new Date();
-    const todayStr = toLocalDateString(now);
-
-    const solvedDays = [...(settings.solvedDays || [])];
-    if (!solvedDays.includes(todayStr)) {
-      solvedDays.push(todayStr);
-    }
-
-    const thirtyDaysAgo = new Date(now);
-    thirtyDaysAgo.setDate(now.getDate() - 30);
-    const cutoffStr = toLocalDateString(thirtyDaysAgo);
-    const updatedSolvedDays = solvedDays.filter((d) => d >= cutoffStr).sort();
-
-    if (settings.lastAcceptedDate === todayStr) {
-      await saveSettings({ solvedDays: updatedSolvedDays });
-      return;
-    }
-
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = toLocalDateString(yesterday);
-
-    const newStreak =
-      settings.lastAcceptedDate === yesterdayStr
-        ? (settings.currentStreak || 0) + 1
-        : 1;
-
+    const result = computeStreak(
+      settings.currentStreak,
+      settings.lastAcceptedDate,
+      settings.solvedDays,
+    );
     await saveSettings({
-      currentStreak: newStreak,
-      lastAcceptedDate: todayStr,
-      solvedDays: updatedSolvedDays,
+      currentStreak: result.newStreak,
+      lastAcceptedDate: result.newLastAcceptedDate,
+      solvedDays: result.updatedSolvedDays,
     });
-
-    console.log(`CodeforcesSync: Streak updated → ${newStreak}`);
+    console.log(`CodeforcesSync: Streak updated → ${result.newStreak}`);
   } catch (e) {
     console.error("CodeforcesSync: Streak update error", e);
   }
-}
-
-function toLocalDateString(date: Date): string {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    .toISOString()
-    .split("T")[0];
 }
 
 function recordApiFailure(reason: string): number {
