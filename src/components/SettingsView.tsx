@@ -1,4 +1,4 @@
-import type { AppSettings } from "../utils/storage";
+import type { AppSettings } from "../storage";
 import Toggle from "./Toggle";
 
 export default function SettingsView({

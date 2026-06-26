@@ -1,4 +1,4 @@
-import type { AppSettings } from "../utils/storage";
+import type { AppSettings } from "../storage";
 import { getWeeklyProgress } from "../statistics";
 import { toLocalDateString } from "../shared/utils/date";
 import HeaderIcons from "./HeaderIcons";

@@ -19,7 +19,7 @@
 | **09** | Background service split — scheduler, messageRouter, syncWorker | High | Phase 01-08 | ✅ **Complete** |
 | **10** | Content script split — extract injected functions | Medium | Phase 09 | ✅ **Complete** |
 | **11** | React component split — dashboard, settings, hooks | Medium | Phase 01, 04 | ✅ **Complete** |
-| **12** | Cleanup — delete old files, final import updates | Medium | All prior phases |
+| **12** | Cleanup — delete old files, final import updates | Medium | All prior phases | ✅ **Complete** |
 
 ## Principles
 
@@ -44,4 +44,4 @@
 | 09 — Background split | ✅ Complete |
 | 10 — Content script split | ✅ Complete |
 | 11 — React component split | ✅ Complete |
-| 12 — Cleanup | ⏳ Pending |
+| 12 — Cleanup | ✅ Complete |

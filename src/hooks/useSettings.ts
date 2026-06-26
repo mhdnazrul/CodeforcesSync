@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
-import { getSettings, saveSettings, defaultSettings } from "../utils/storage";
-import type { AppSettings } from "../utils/storage";
+import { ChromeStorageService } from "../browser/chrome/adapter";
+import { createStore, defaultSettings } from "../storage";
+import type { AppSettings } from "../storage";
+
+const { getSettings, saveSettings } = createStore(new ChromeStorageService());
 
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
