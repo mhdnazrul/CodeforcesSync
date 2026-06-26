@@ -239,13 +239,17 @@ async function processSubmissions(
     const commitMsg = `Sync Codeforces: ${problemId} - ${problemName} [${language}]`;
     const contentBase64 = utf8ToBase64(code);
 
+    const ghRepo = settings.githubRepo;
+    const repoOwner = ghRepo.includes("/") ? ghRepo.split("/")[0] : settings.githubUsername;
+    const repoName = ghRepo.includes("/") ? ghRepo.split("/")[1] : ghRepo;
+
     console.log(
-      `CodeforcesSync: Uploading ${path} → ${settings.githubUsername}/${settings.githubRepo}`,
+      `CodeforcesSync: Uploading ${path} → ${repoOwner}/${repoName}`,
     );
 
     const success = await services.uploadFile(
-      settings.githubUsername,
-      settings.githubRepo,
+      repoOwner,
+      repoName,
       path,
       contentBase64,
       commitMsg,

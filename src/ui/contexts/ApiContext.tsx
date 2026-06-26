@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { ChromeStorageService } from "../../browser/chrome/adapter";
 import { createStore, defaultSettings } from "../../storage";
 import { getWeeklyProgress } from "../../statistics";
+import { extractRepoName } from "../utils/errors";
 import type { AppSettings } from "../../storage";
+import type { CfStats } from "../../cfstats";
 
 interface Stats {
   currentStreak: number;
@@ -16,6 +18,10 @@ interface Stats {
 export interface ApiContextType {
   settings: AppSettings | null;
   stats: Stats | null;
+  cfStats: CfStats | null;
+  cfStatsLoading: boolean;
+  cfStatsError: string | null;
+  refreshCfStats: () => Promise<void>;
   isOnboarded: boolean;
   isLoading: boolean;
   connectGitHub: () => Promise<void>;
@@ -46,6 +52,9 @@ function buildStats(s: AppSettings): Stats {
 export function ApiProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [cfStats, setCfStats] = useState<CfStats | null>(null);
+  const [cfStatsLoading, setCfStatsLoading] = useState(false);
+  const [cfStatsError, setCfStatsError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const isOnboarded = !!(settings?.githubToken && settings?.githubRepo && settings?.codeforcesHandle);
@@ -110,13 +119,41 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
     await store.clearSettings();
     setSettings(defaultSettings);
     setStats(buildStats(defaultSettings));
+    setCfStats(null);
+    setCfStatsLoading(false);
+    setCfStatsError(null);
   };
+
+  const refreshCfStats = useCallback(async () => {
+    if (!settings?.codeforcesHandle) return;
+    setCfStatsLoading(true);
+    setCfStatsError(null);
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "FETCH_CF_STATS",
+        handle: settings.codeforcesHandle,
+      });
+      if (response?.success && response.stats) {
+        setCfStats(response.stats);
+      } else {
+        setCfStatsError(response?.error || "Failed to fetch statistics");
+      }
+    } catch {
+      setCfStatsError("Failed to fetch statistics");
+    } finally {
+      setCfStatsLoading(false);
+    }
+  }, [settings?.codeforcesHandle]);
 
   return (
     <ApiContext.Provider
       value={{
         settings,
         stats,
+        cfStats,
+        cfStatsLoading,
+        cfStatsError,
+        refreshCfStats,
         isOnboarded,
         isLoading,
         connectGitHub,
@@ -140,9 +177,4 @@ export function useApi() {
   return context;
 }
 
-function extractRepoName(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return trimmed;
-  const match = trimmed.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/#.?]+)/);
-  return match ? match[2] : trimmed;
-}
+

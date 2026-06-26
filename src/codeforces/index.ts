@@ -122,50 +122,63 @@ export async function fetchRssFeed(
       console.log(
         `CodeforcesSync: [RSS Tier 2] Attempt ${i + 1}/${feedUrls.length} — ${feedUrl}`
       );
-      const res = await fetch(feedUrl, {
-        method: "GET",
-        headers: { "Cache-Control": "no-cache" },
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15_000);
+      try {
+        const res = await fetch(feedUrl, {
+          method: "GET",
+          headers: { "Cache-Control": "no-cache" },
+          signal: controller.signal,
+        });
 
-      if (!res.ok) {
+        if (!res.ok) {
+          console.warn(
+            `CodeforcesSync: [RSS Tier 2] HTTP ${res.status} from ${feedUrl}`
+          );
+          continue;
+        }
+
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("xml") && !contentType.includes("atom")) {
+          console.warn(
+            `CodeforcesSync: [RSS Tier 2] Unexpected Content-Type: ${contentType}`
+          );
+          continue;
+        }
+
+        const xmlText = await res.text();
+        if (!xmlText || xmlText.length < 100) {
+          console.warn(
+            `CodeforcesSync: [RSS Tier 2] Empty or too-short response: ${xmlText.length} chars`
+          );
+          continue;
+        }
+
+        const submissions = parseRssFeed(xmlText);
+        if (submissions.length > 0) {
+          console.log(
+            `CodeforcesSync: [RSS Tier 2] SUCCESS. Parsed ${submissions.length} submission(s).`
+          );
+          return submissions;
+        }
+
         console.warn(
-          `CodeforcesSync: [RSS Tier 2] HTTP ${res.status} from ${feedUrl}`
+          `CodeforcesSync: [RSS Tier 2] Feed parsed but contains 0 accepted submissions.`
         );
-        continue;
+      } finally {
+        clearTimeout(timer);
       }
-
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("xml") && !contentType.includes("atom")) {
-        console.warn(
-          `CodeforcesSync: [RSS Tier 2] Unexpected Content-Type: ${contentType}`
-        );
-        continue;
-      }
-
-      const xmlText = await res.text();
-      if (!xmlText || xmlText.length < 100) {
-        console.warn(
-          `CodeforcesSync: [RSS Tier 2] Empty or too-short response: ${xmlText.length} chars`
-        );
-        continue;
-      }
-
-      const submissions = parseRssFeed(xmlText);
-      if (submissions.length > 0) {
-        console.log(
-          `CodeforcesSync: [RSS Tier 2] SUCCESS. Parsed ${submissions.length} submission(s).`
-        );
-        return submissions;
-      }
-
-      console.warn(
-        `CodeforcesSync: [RSS Tier 2] Feed parsed but contains 0 accepted submissions.`
-      );
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(
-        `CodeforcesSync: [RSS Tier 2] Fetch/parse error from ${feedUrl}: ${msg}`
-      );
+      if (e instanceof DOMException && e.name === "AbortError") {
+        console.warn(
+          `CodeforcesSync: [RSS Tier 2] Feed fetch timed out for ${feedUrl}`
+        );
+      } else {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(
+          `CodeforcesSync: [RSS Tier 2] Fetch/parse error from ${feedUrl}: ${msg}`
+        );
+      }
     }
   }
 

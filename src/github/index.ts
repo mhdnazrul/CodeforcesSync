@@ -45,6 +45,7 @@ export class GithubHandler {
     url: string,
     options: RequestInit,
     maxAttempts: number = 4,
+    timeoutMs: number = 15_000,
   ): Promise<Response> {
     const token = await this.credentialStore.getToken();
     if (!token) throw new Error("No GitHub token available");
@@ -58,8 +59,10 @@ export class GithubHandler {
     let lastError: unknown = null;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        const res = await fetch(url, { ...options, headers });
+        const res = await fetch(url, { ...options, headers, signal: controller.signal });
 
         if (res.status === 401) {
           await this.credentialStore.clear();
@@ -116,6 +119,8 @@ export class GithubHandler {
           await new Promise((r) => setTimeout(r, backoffMs));
           continue;
         }
+      } finally {
+        clearTimeout(timer);
       }
     }
 
@@ -138,7 +143,7 @@ export class GithubHandler {
   ): Promise<string | null> {
     try {
       const url = `${this.baseUrl}/repos/${username}/${repo}/contents/${path}`;
-      const res = await this.fetchWithRateLimit(url, { method: "GET" });
+      const res = await this.fetchWithRateLimit(url, { method: "GET" }, 4, 10_000);
       if (res.status === 404) return null;
       if (!res.ok) {
         console.error(
@@ -177,7 +182,7 @@ export class GithubHandler {
       const res = await this.fetchWithRateLimit(url, {
         method: "PUT",
         body: JSON.stringify(body),
-      });
+      }, 4, 30_000);
 
       if (res.status === 200 || res.status === 201) return true;
 

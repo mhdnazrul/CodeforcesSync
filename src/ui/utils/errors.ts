@@ -4,6 +4,13 @@ export function safeErrorString(err: unknown): string {
   return "An unexpected error occurred";
 }
 
+export function extractRepoName(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) return trimmed;
+  const match = trimmed.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/#.?]+)/);
+  return match ? `${match[1]}/${match[2]}` : trimmed;
+}
+
 export function validateGithubRepo(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return "Repository URL is required";

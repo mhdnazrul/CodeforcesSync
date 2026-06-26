@@ -5,7 +5,7 @@ import Card from "../components/Card";
 import Button from "../components/Button";
 import Input from "../components/Input";
 import { useApi } from "../contexts/ApiContext";
-import { safeErrorString, validateGithubRepo } from "../utils/errors";
+import { safeErrorString, validateGithubRepo, extractRepoName } from "../utils/errors";
 
 export default function SettingsScreen({ onTabChange }: { onTabChange: (tab: "dashboard" | "settings" | "welcome") => void }) {
   const { settings, saveSettings, resetAll } = useApi();
@@ -25,7 +25,7 @@ export default function SettingsScreen({ onTabChange }: { onTabChange: (tab: "da
     }
     setLoading(true);
     try {
-      await saveSettings({ githubRepo: repoUrl, subdirectoryName: subdir, useSubdirectory: !!subdir });
+      await saveSettings({ githubRepo: extractRepoName(repoUrl), subdirectoryName: subdir, useSubdirectory: !!subdir });
       setSaveStatus("saved");
     } catch (err: unknown) {
       setSaveStatus("error");

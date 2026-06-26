@@ -4,6 +4,7 @@ import { createRetryEngine } from "../sync";
 import { GithubHandler } from "../github";
 import type { GithubCredentialStore } from "../github";
 import type { SyncStorage } from "../sync";
+import { getCfStats } from "../cfstats";
 import { startScheduler } from "./scheduler";
 import { runSyncWorker } from "./syncWorker";
 
@@ -149,7 +150,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       })
       .catch((err: Error) => {
         console.error("CodeforcesSync: [OAuth] handleOAuthFlow threw:", err.message, err);
-        console.error("CodeforcesSync: [OAuth] Full error object:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
         sendResponse({ error: err.message });
       });
     return true;
@@ -165,6 +165,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     validateRepo(repoName, credentialStore)
       .then((result) => sendResponse(result))
       .catch((err) => sendResponse({ valid: false, error: err.message }));
+    return true;
+  }
+  if (message.type === "FETCH_CF_STATS") {
+    if (typeof message.handle !== "string" || !message.handle) {
+      sendResponse({ success: false, error: "Codeforces handle is required" });
+      return true;
+    }
+    getCfStats(message.handle)
+      .then((stats) => sendResponse({ success: true, stats }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
 });

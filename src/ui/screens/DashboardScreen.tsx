@@ -1,16 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import Card from "../components/Card";
 import { useApi } from "../contexts/ApiContext";
 
 export default function DashboardScreen({ onTabChange }: { onTabChange: (tab: "dashboard" | "settings") => void }) {
-  const { stats, settings } = useApi();
+  const { stats, settings, cfStats, cfStatsLoading, cfStatsError, refreshCfStats } = useApi();
+
+  useEffect(() => {
+    if (settings?.codeforcesHandle && !cfStats && !cfStatsLoading && !cfStatsError) {
+      refreshCfStats();
+    }
+  }, [settings?.codeforcesHandle, cfStats, cfStatsLoading, cfStatsError, refreshCfStats]);
 
   if (!stats) return null;
 
   const bestStreakDisplay = stats.bestStreak > 0 ? `${stats.bestStreak} Days` : "--";
-  const totalAcDisplay = stats.totalAC > 0 ? stats.totalAC : "--";
 
   return (
     <div className="flex flex-col h-full bg-[#F4F4F5]">
@@ -58,35 +63,59 @@ export default function DashboardScreen({ onTabChange }: { onTabChange: (tab: "d
           </div>
         </Card>
 
-        <Card title="Statistics Section" className="flex-1 min-h-0 flex flex-col justify-center">
-          <div className="flex items-center mt-1">
-            <div className="w-24 h-24 rounded-full border-[16px] border-blue-500 relative flex-shrink-0" 
-              style={{
-                borderTopColor: "#EF4444", 
-                borderRightColor: "#F97316",
-                transform: "rotate(-45deg)"
-              }}
-            >
-              <div className="absolute inset-0 bg-white rounded-full" style={{ transform: "scale(0.8)" }}></div>
+        <Card title="Statistics Section" className="flex-1 min-h-0 flex flex-col overflow-y-auto">
+          {cfStatsLoading && !cfStats ? (
+            <div className="flex items-center justify-center py-4">
+              <svg className="animate-spin h-5 w-5 text-[#00C853] mr-2" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              <span className="font-mono text-[11px] text-gray-500">Loading statistics...</span>
             </div>
-
-            <div className="w-px bg-gray-400 h-20 mx-4"></div>
-
-            <div className="flex-1 font-mono text-[12px] leading-tight">
-              <div className="mb-2">
-                <p className="underline font-bold mb-0.5">Solved</p>
-                <p>Total AC: <span className="float-right">{totalAcDisplay}</span></p>
+          ) : cfStatsError && !cfStats ? (
+            <div className="text-center py-4">
+              <p className="font-mono text-[11px] text-red-500 mb-2">{cfStatsError}</p>
+              <button onClick={refreshCfStats} className="font-mono text-[11px] text-blue-600 hover:underline">
+                Retry
+              </button>
+            </div>
+          ) : cfStats ? (
+            <div className="font-mono text-[11px] leading-relaxed space-y-2">
+              <div className="flex items-center justify-between bg-gray-50 rounded px-2 py-1.5">
+                <span className="text-gray-600">Rating</span>
+                <span className="font-bold">{cfStats.currentRating ?? "N/A"}{cfStats.maxRating != null ? ` (max: ${cfStats.maxRating})` : ""}</span>
               </div>
-              
-              <div>
-                <p className="underline font-bold mb-0.5">Submissions</p>
-                <p>TLE : <span className="float-right">{stats.submissions.tle}</span></p>
-                <p>WA: <span className="float-right">{stats.submissions.wa}</span></p>
-                <p>RTE: <span className="float-right">{stats.submissions.rte}</span></p>
-                <p>MLE: <span className="float-right">{stats.submissions.mle}</span></p>
+              <div className="flex items-center justify-between bg-gray-50 rounded px-2 py-1.5">
+                <span className="text-gray-600">Rank</span>
+                <span className="font-bold">{cfStats.currentRank ?? "N/A"}{cfStats.maxRank ? ` (max: ${cfStats.maxRank})` : ""}</span>
+              </div>
+              <hr className="border-gray-200" />
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                <div className="flex justify-between"><span className="text-gray-600">Total</span><span className="font-bold">{cfStats.totalSubmissions}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">AC</span><span className="font-bold text-green-700">{cfStats.accepted}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">WA</span><span className="font-bold text-red-600">{cfStats.wrongAnswer}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">TLE</span><span className="font-bold text-orange-600">{cfStats.timeLimitExceeded}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">RTE</span><span className="font-bold text-red-700">{cfStats.runtimeError}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">CE</span><span className="font-bold text-yellow-700">{cfStats.compilationError}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">MLE</span><span className="font-bold text-purple-700">{cfStats.memoryLimitExceeded}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">OLE</span><span className="font-bold text-gray-700">{cfStats.outputLimitExceeded}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">PE</span><span className="font-bold text-blue-700">{cfStats.presentationError}</span></div>
+                <div className="flex justify-between col-span-2"><span className="text-gray-600">Acceptance Rate</span><span className="font-bold">{cfStats.acceptanceRate}%</span></div>
+              </div>
+              <hr className="border-gray-200" />
+              <div className="flex justify-between bg-gray-50 rounded px-2 py-1.5">
+                <span className="text-gray-600">Unique Solved</span>
+                <span className="font-bold">{cfStats.uniqueSolvedProblems}</span>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="text-center py-4">
+              <p className="font-mono text-[11px] text-gray-500">No statistics available</p>
+              <button onClick={refreshCfStats} className="font-mono text-[11px] text-blue-600 hover:underline mt-1">
+                Load
+              </button>
+            </div>
+          )}
         </Card>
       </div>
 
