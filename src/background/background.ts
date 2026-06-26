@@ -160,4 +160,52 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     });
     return true;
   }
+  if (message.type === "VALIDATE_REPO") {
+    const repoName = message.repo as string;
+    validateRepo(repoName, credentialStore)
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ valid: false, error: err.message }));
+    return true;
+  }
 });
+
+async function validateRepo(
+  repo: string,
+  creds: GithubCredentialStore
+): Promise<{ valid: boolean; error?: string }> {
+  const parts = repo.split("/");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return { valid: false, error: "Invalid repository format. Use owner/repo." };
+  }
+  const [owner, repoName] = parts;
+
+  const token = await creds.getToken();
+  if (!token) {
+    return { valid: false, error: "Not authenticated with GitHub. Please re-authenticate." };
+  }
+
+  const response = await fetch(
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    }
+  );
+
+  if (response.status === 200) {
+    const data = await response.json();
+    if (data.permissions && !data.permissions.push) {
+      return { valid: false, error: "You don't have write access to this repository." };
+    }
+    return { valid: true };
+  }
+  if (response.status === 404) {
+    return { valid: false, error: "Repository not found." };
+  }
+  if (response.status === 403) {
+    return { valid: false, error: "Access denied to this repository." };
+  }
+  return { valid: false, error: `GitHub API error (${response.status}). Please try again.` };
+}

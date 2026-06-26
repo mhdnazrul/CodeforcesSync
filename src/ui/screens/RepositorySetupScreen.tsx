@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import Button from "../components/Button";
 import Stepper from "../components/Stepper";
 import Input from "../components/Input";
@@ -6,6 +6,15 @@ import Footer from "../components/Footer";
 import { useApi } from "../contexts/ApiContext";
 import { safeErrorString, validateGithubRepo } from "../utils/errors";
 import Logo from "../../assets/logo.png"
+
+function parseOwnerRepo(input: string): { owner: string; repo: string } | null {
+  const trimmed = input.trim();
+  const urlMatch = trimmed.match(/^(?:https?:\/\/)?(?:www\.)?github\.com\/([^/]+)\/([^/#.?]+)/);
+  if (urlMatch) return { owner: urlMatch[1], repo: urlMatch[2] };
+  const repoMatch = trimmed.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)$/);
+  if (repoMatch) return { owner: repoMatch[1], repo: repoMatch[2] };
+  return null;
+}
 
 interface Props {
   onNext: () => void;
@@ -19,13 +28,54 @@ export default function RepositorySetupScreen({ onNext, onBack }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [urlError, setUrlError] = useState("");
+  const [validating, setValidating] = useState(false);
+  const [validated, setValidated] = useState<"valid" | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  const handleFinish = async () => {
-    const validationError = validateGithubRepo(url);
-    if (validationError) {
-      setUrlError(validationError);
+  const handleUrlChange = useCallback((value: string) => {
+    setUrl(value);
+    setUrlError("");
+    setValidated(null);
+    setValidating(false);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const trimmed = value.trim();
+    if (!trimmed) return;
+
+    const formatError = validateGithubRepo(trimmed);
+    if (formatError) {
+      setUrlError(formatError);
       return;
     }
+
+    const parsed = parseOwnerRepo(trimmed);
+    if (!parsed) {
+      setUrlError("Enter a valid GitHub URL or owner/repo name");
+      return;
+    }
+
+    debounceRef.current = setTimeout(async () => {
+      setValidating(true);
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: "VALIDATE_REPO",
+          repo: `${parsed.owner}/${parsed.repo}`,
+        });
+        if (response?.valid) {
+          setValidated("valid");
+        } else {
+          setUrlError(response?.error || "Repository validation failed");
+        }
+      } catch {
+        setUrlError("Failed to validate repository");
+      } finally {
+        setValidating(false);
+      }
+    }, 500);
+  }, []);
+
+  const handleFinish = async () => {
+    if (validated !== "valid") return;
     setLoading(true);
     setError("");
     try {
@@ -37,6 +87,8 @@ export default function RepositorySetupScreen({ onNext, onBack }: Props) {
       setLoading(false);
     }
   };
+
+  const canProceed = validated === "valid" && !loading;
 
   return (
     <div className="flex flex-col h-full bg-[#F4F4F5] overflow-hidden">
@@ -57,9 +109,18 @@ export default function RepositorySetupScreen({ onNext, onBack }: Props) {
               label="Repository URL"
               placeholder="Paste the repository URL to push your submissions to."
               value={url}
-              onChange={(e) => { setUrl(e.target.value); setUrlError(""); }}
-              error={urlError || error}
+              onChange={(e) => handleUrlChange(e.target.value)}
+              error={urlError}
             />
+            {validating && (
+              <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Checking repository...
+              </div>
+            )}
             <Input
               label="Subdirectory (Optional)"
               placeholder="Subdirectory name (e.g. /solutions)"
@@ -68,11 +129,13 @@ export default function RepositorySetupScreen({ onNext, onBack }: Props) {
             />
           </div>
 
+          {error && <p className="text-[11px] text-red-500 mb-3">{error}</p>}
+
           <p className="text-center font-mono text-[11px] text-gray-500 mb-3">
             You can change this later.
           </p>
 
-          <Button variant="primary" size="full" onClick={handleFinish} isLoading={loading}>
+          <Button variant="primary" size="full" onClick={handleFinish} isLoading={loading} disabled={!canProceed}>
             Finish Setup
           </Button>
 
