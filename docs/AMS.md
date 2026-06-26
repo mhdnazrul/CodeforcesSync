@@ -11,7 +11,7 @@
 | **01** | Shared utilities — extract pure functions to `shared/utils/` | Very Low | None | ✅ **Complete** |
 | **02** | Shared types — create `shared/types/` | Very Low | Phase 01 | ✅ **Complete** |
 | **03** | Browser abstraction — create `browser/` interfaces + Chrome adapter | Low | Phase 02 | ✅ **Complete** |
-| **04** | Storage abstraction — create `storage/` module with schema versioning | Low | Phase 03 |
+| **04** | Storage abstraction — create `storage/` module with schema versioning | Low | Phase 03 | ✅ **Complete** |
 | **05** | Statistics extraction — streak, calendar to `statistics/` | Low | Phase 01 |
 | **06** | Codeforces module extraction — API, parser, submissions | Low | Phase 01, 03 |
 | **07** | GitHub module extraction — auth, upload, repository ops | Medium | Phase 01, 03, 04 |
@@ -36,4 +36,5 @@
 | 01 — Shared utilities | ✅ Complete |
 | 02 — Shared types | ✅ Complete |
 | 03 — Browser abstraction | ✅ Complete |
-| 04–12 | ⏳ Pending |
+| 04 — Storage abstraction | ✅ Complete |
+| 05–12 | ⏳ Pending |
