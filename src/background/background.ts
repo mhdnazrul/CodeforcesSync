@@ -3,6 +3,14 @@ import { getSettings, saveSettings } from "../utils/storage";
 import { generateFilePath } from "../utils/formatters";
 import { computeStreak } from "../statistics";
 import { toLocalDateString } from "../shared/utils/date";
+import { unescapeHtml, utf8ToBase64 } from "../shared/utils/encoding";
+import {
+  generateSubmissionUrl,
+  fetchRssFeed,
+  isAcceptedSubmission,
+  getProblemId,
+  createApiUrl,
+} from "../codeforces";
 import type { Submission } from "../shared/types/codeforces";
 
 const github = new GithubHandler();
@@ -41,180 +49,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     );
   }
 });
-
-function unescapeHtml(safe: string): string {
-  return safe
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#039;/g, "'")
-    .replace(/&nbsp;/g, " ");
-}
-
-function generateSubmissionUrl(sub: Submission): string {
-  const { id: submissionId, contestId } = sub;
-
-  if (typeof contestId === "number" && contestId >= 100_000) {
-    console.log(
-      `CodeforcesSync: Gym submission ${submissionId} (contest ${contestId})`
-    );
-    return `https://codeforces.com/gym/${contestId}/submission/${submissionId}`;
-  }
-
-  console.log(
-    `CodeforcesSync: Contest submission ${submissionId} (contest ${contestId ?? "n/a"})`
-  );
-  return `https://codeforces.com/contest/${contestId}/submission/${submissionId}`;
-}
-
-/**
- * Parses RSS/Atom feed XML to extract submission data.
- * Handles both Codeforces RSS and Atom feeds with robust error recovery.
- */
-function parseRssFeed(xmlText: string): Submission[] {
-  const submissions: Submission[] = [];
-
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xmlText, "text/xml");
-
-    if (doc.documentElement.nodeName === "parsererror") {
-      console.error(
-        `CodeforcesSync: [RSS] XML parse error: ${doc.documentElement.textContent}`
-      );
-      return submissions;
-    }
-
-    const entries =
-      doc.getElementsByTagName("item").length > 0
-        ? Array.from(doc.getElementsByTagName("item"))
-        : Array.from(doc.getElementsByTagName("entry"));
-
-    for (const entry of entries) {
-      const titleEl =
-        entry.getElementsByTagName("title")[0] ||
-        entry.getElementsByTagName("title")[0];
-      const title = titleEl ? titleEl.textContent || "" : "";
-
-      const linkEl = entry.querySelector(
-        'link[rel="alternate"], link:not([rel])'
-      );
-      const link =
-        linkEl?.getAttribute("href") || linkEl?.textContent || "";
-
-      const descEl = entry.getElementsByTagName("description")[0];
-      const desc = descEl ? descEl.textContent || "" : "";
-
-      const statusMatch = desc.match(/status\s*[:=]\s*(OK|WRONG)/i);
-      const verdict = statusMatch && statusMatch[1].toUpperCase() === "OK" ? "OK" : "";
-
-      if (verdict !== "OK") continue;
-
-      const submissionMatch = link.match(
-        /\/(gym|contest)\/(\d+)\/submission\/(\d+)/
-      );
-      if (!submissionMatch) continue;
-
-      const contestId = parseInt(submissionMatch[2], 10);
-      const submissionId = parseInt(submissionMatch[3], 10);
-
-      const problemMatch = title.match(/(\w+)\s*[-–]\s*(.+?)\s*\[/i);
-      const problemIndex = problemMatch ? problemMatch[1].trim() : "";
-      const problemName = problemMatch ? problemMatch[2].trim() : title.slice(0, 50);
-
-      const langMatch = title.match(/\[([^\]]+)\]\s*$/);
-      const language = langMatch ? langMatch[1].trim() : "Unknown";
-
-      if (submissionId && problemIndex) {
-        submissions.push({
-          id: submissionId,
-          contestId,
-          verdict: "OK",
-          programmingLanguage: language,
-          problem: {
-            index: problemIndex,
-            name: problemName,
-          },
-        });
-      }
-    }
-  } catch (e) {
-    console.error(
-      `CodeforcesSync: [RSS] Parse exception: ${e instanceof Error ? e.message : String(e)}`
-    );
-  }
-
-  return submissions;
-}
-
-/**
- * Fetches and parses a Codeforces RSS/Atom feed.
- * Attempts two feed sources in order of reliability.
- */
-async function fetchRssFeed(handle: string): Promise<Submission[] | null> {
-  const feedUrls = [
-    `https://codeforces.com/rss/submissions/user/${encodeURIComponent(handle)}`,
-    `https://codeforces.com/atom/user/${encodeURIComponent(handle)}/submissions`,
-  ];
-
-  for (let i = 0; i < feedUrls.length; i++) {
-    const feedUrl = feedUrls[i];
-    try {
-      console.log(
-        `CodeforcesSync: [RSS Tier 2] Attempt ${i + 1}/${feedUrls.length} — ${feedUrl}`
-      );
-      const res = await fetch(feedUrl, {
-        method: "GET",
-        headers: { "Cache-Control": "no-cache" },
-      });
-
-      if (!res.ok) {
-        console.warn(
-          `CodeforcesSync: [RSS Tier 2] HTTP ${res.status} from ${feedUrl}`
-        );
-        continue;
-      }
-
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("xml") && !contentType.includes("atom")) {
-        console.warn(
-          `CodeforcesSync: [RSS Tier 2] Unexpected Content-Type: ${contentType}`
-        );
-        continue;
-      }
-
-      const xmlText = await res.text();
-      if (!xmlText || xmlText.length < 100) {
-        console.warn(
-          `CodeforcesSync: [RSS Tier 2] Empty or too-short response: ${xmlText.length} chars`
-        );
-        continue;
-      }
-
-      const submissions = parseRssFeed(xmlText);
-      if (submissions.length > 0) {
-        console.log(
-          `CodeforcesSync: [RSS Tier 2] SUCCESS. Parsed ${submissions.length} submission(s).`
-        );
-        return submissions;
-      }
-
-      console.warn(
-        `CodeforcesSync: [RSS Tier 2] Feed parsed but contains 0 accepted submissions.`
-      );
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.error(
-        `CodeforcesSync: [RSS Tier 2] Fetch/parse error from ${feedUrl}: ${msg}`
-      );
-    }
-  }
-
-  recordApiFailure("RSS Tier 2: All feed sources exhausted");
-  return null;
-}
 
 async function fetchSourceCode(sub: Submission): Promise<string | null> {
   const url = generateSubmissionUrl(sub);
@@ -312,15 +146,6 @@ async function fetchSourceCode(sub: Submission): Promise<string | null> {
       chrome.tabs.remove(tab.id).catch(() => {});
     }
   }
-}
-
-function utf8ToBase64(str: string): string {
-  const bytes = new TextEncoder().encode(str);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
 }
 
 async function updateStreak(): Promise<void> {
@@ -674,8 +499,7 @@ async function syncSolutions(): Promise<void> {
       );
     }
 
-    const handle = encodeURIComponent(settings.codeforcesHandle.trim());
-    const apiUrl = `https://codeforces.com/api/user.status?handle=${handle}&from=1&count=30`;
+    const apiUrl = createApiUrl(settings.codeforcesHandle.trim());
 
     const submissions = await fetchCodeforcesSubmissionsDualTier(
       cfTabId,
@@ -687,9 +511,7 @@ async function syncSolutions(): Promise<void> {
       return;
     }
 
-    const acceptedSubmissions = submissions.filter(
-      (sub) => sub.verdict === "OK"
-    );
+    const acceptedSubmissions = submissions.filter(isAcceptedSubmission);
 
     if (acceptedSubmissions.length === 0) {
       console.log("CodeforcesSync: No accepted submissions in latest batch.");
@@ -715,10 +537,7 @@ async function syncSolutions(): Promise<void> {
         continue;
       }
 
-      const contestId = sub.contestId != null ? sub.contestId.toString() : "";
-      const problemId = contestId
-        ? `${contestId}${sub.problem.index}`
-        : sub.problem.index;
+      const problemId = getProblemId(sub);
       const problemName = sub.problem.name;
       const language = sub.programmingLanguage;
 

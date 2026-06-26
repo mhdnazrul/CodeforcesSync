@@ -13,7 +13,7 @@
 | **03** | Browser abstraction — create `browser/` interfaces + Chrome adapter | Low | Phase 02 | ✅ **Complete** |
 | **04** | Storage abstraction — create `storage/` module with schema versioning | Low | Phase 03 | ✅ **Complete** |
 | **05** | Statistics extraction — streak, calendar to `statistics/` | Low | Phase 01 | ✅ **Complete** |
-| **06** | Codeforces module extraction — API, parser, submissions | Low | Phase 01, 03 |
+| **06** | Codeforces module extraction — API, parser, submissions | Low | Phase 01, 03 | ✅ **Complete** |
 | **07** | GitHub module extraction — auth, upload, repository ops | Medium | Phase 01, 03, 04 |
 | **08** | Sync engine extraction — retry, queue, orchestrator | Low | Phase 05, 06, 07 |
 | **09** | Background service split — scheduler, messageRouter, syncWorker | High | Phase 01-08 |
@@ -38,4 +38,5 @@
 | 03 — Browser abstraction | ✅ Complete |
 | 04 — Storage abstraction | ✅ Complete |
 | 05 — Statistics extraction | ✅ Complete |
-| 06–12 | ⏳ Pending |
+| 06 — Codeforces module | ✅ Complete |
+| 07–12 | ⏳ Pending |

@@ -26,7 +26,7 @@ Architecture and engineering reference for the CodeforcesSync browser extension.
 | Phase 03 | ✅ Complete | Browser abstraction |
 | Phase 04 | ✅ Complete | Storage abstraction |
 | Phase 05 | ✅ Complete | Statistics module |
-| Phase 06 | Planned | Codeforces module |
+| Phase 06 | ✅ Complete | Codeforces module |
 | Phase 07 | Planned | GitHub module |
 | Phase 08 | Planned | Sync engine |
 | Phase 09 | Planned | Background service split |
