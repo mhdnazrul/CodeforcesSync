@@ -4,12 +4,14 @@ import Toggle from "./Toggle";
 export default function SettingsView({
   settings,
   saveStatus,
+  repoError,
   onClose,
   onChange,
   onSave,
 }: {
   settings: AppSettings;
   saveStatus: "idle" | "saving" | "saved";
+  repoError: string | null;
   onClose: () => void;
   onChange: (key: keyof AppSettings, value: AppSettings[keyof AppSettings]) => void;
   onSave: () => void;
@@ -86,6 +88,14 @@ export default function SettingsView({
                 placeholder="e.g. Codeforces-Solutions"
                 className="settings-input"
               />
+              {repoError && (
+                <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {repoError}
+                </p>
+              )}
             </div>
 
             <div className="flex items-center justify-between px-3 py-2.5 bg-slate-50 rounded-xl border border-slate-100">
