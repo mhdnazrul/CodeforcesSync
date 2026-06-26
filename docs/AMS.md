@@ -14,7 +14,7 @@
 | **04** | Storage abstraction — create `storage/` module with schema versioning | Low | Phase 03 | ✅ **Complete** |
 | **05** | Statistics extraction — streak, calendar to `statistics/` | Low | Phase 01 | ✅ **Complete** |
 | **06** | Codeforces module extraction — API, parser, submissions | Low | Phase 01, 03 | ✅ **Complete** |
-| **07** | GitHub module extraction — auth, upload, repository ops | Medium | Phase 01, 03, 04 |
+| **07** | GitHub module extraction — auth, upload, repository ops | Medium | Phase 01, 03, 04 | ✅ **Complete** |
 | **08** | Sync engine extraction — retry, queue, orchestrator | Low | Phase 05, 06, 07 |
 | **09** | Background service split — scheduler, messageRouter, syncWorker | High | Phase 01-08 |
 | **10** | Content script split — extract injected functions | Medium | Phase 09 |
@@ -39,4 +39,5 @@
 | 04 — Storage abstraction | ✅ Complete |
 | 05 — Statistics extraction | ✅ Complete |
 | 06 — Codeforces module | ✅ Complete |
-| 07–12 | ⏳ Pending |
+| 07 — GitHub module | ✅ Complete |
+| 08–12 | ⏳ Pending |

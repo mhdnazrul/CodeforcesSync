@@ -1,4 +1,4 @@
-import { GithubHandler } from "../utils/githubAPI";
+import { github } from "../utils/githubAPI";
 import { getSettings, saveSettings } from "../utils/storage";
 import { generateFilePath } from "../utils/formatters";
 import { computeStreak } from "../statistics";
@@ -12,8 +12,6 @@ import {
   createApiUrl,
 } from "../codeforces";
 import type { Submission } from "../shared/types/codeforces";
-
-const github = new GithubHandler();
 
 let isSyncing = false;
 
