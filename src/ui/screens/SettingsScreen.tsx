@@ -44,7 +44,7 @@ export default function SettingsScreen({ onTabChange }: { onTabChange: (tab: "da
 
   return (
     <div className="flex flex-col h-full bg-[#F4F4F5] relative">
-      <Header activeTab="settings" onTabChange={onTabChange} ghRepoPath={settings?.githubUsername ? `${settings.githubUsername}/${settings.githubRepo}` : undefined} cfHandle={settings?.codeforcesHandle} />
+      <Header activeTab="settings" onTabChange={onTabChange} ghRepoPath={settings?.githubRepo?.includes("/") ? settings.githubRepo : (settings?.githubUsername && settings?.githubRepo ? `${settings.githubUsername}/${settings.githubRepo}` : undefined)} cfHandle={settings?.codeforcesHandle} />
 
       <div className="flex-1 overflow-y-auto scrollbar-none p-4">
         <Card title={

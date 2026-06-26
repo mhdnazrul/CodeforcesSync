@@ -10,6 +10,16 @@ interface HeaderProps {
 }
 
 export default function Header({ activeTab, onTabChange, cfHandle, ghRepoPath }: HeaderProps) {
+  const handleRepoClick = () => {
+    if (!ghRepoPath || !ghRepoPath.trim()) return;
+    chrome.tabs.create({ url: `https://github.com/${ghRepoPath}` });
+  };
+
+  const handleCfClick = () => {
+    if (!cfHandle || !cfHandle.trim()) return;
+    chrome.tabs.create({ url: `https://codeforces.com/profile/${encodeURIComponent(cfHandle)}` });
+  };
+
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-gray-100/80 border-b border-gray-200">
       <div className="flex items-center gap-2">
@@ -20,7 +30,7 @@ export default function Header({ activeTab, onTabChange, cfHandle, ghRepoPath }:
       <div className="flex items-center gap-1">
         <Button
           variant="icon"
-          onClick={() => { if (cfHandle) chrome.tabs.create({ url: `https://codeforces.com/profile/${encodeURIComponent(cfHandle)}` }); }}
+          onClick={handleCfClick}
           disabled={!cfHandle}
           title="View Codeforces Profile"
         >
@@ -33,7 +43,7 @@ export default function Header({ activeTab, onTabChange, cfHandle, ghRepoPath }:
 
         <Button
           variant="icon"
-          onClick={() => { if (ghRepoPath) chrome.tabs.create({ url: `https://github.com/${ghRepoPath}` }); }}
+          onClick={handleRepoClick}
           disabled={!ghRepoPath}
           title="Go to Repository"
         >

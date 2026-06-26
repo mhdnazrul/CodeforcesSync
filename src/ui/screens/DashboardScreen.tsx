@@ -14,7 +14,7 @@ export default function DashboardScreen({ onTabChange }: { onTabChange: (tab: "d
 
   return (
     <div className="flex flex-col h-full bg-[#F4F4F5]">
-      <Header activeTab="dashboard" onTabChange={onTabChange} ghRepoPath={settings?.githubUsername ? `${settings.githubUsername}/${settings.githubRepo}` : undefined} cfHandle={settings?.codeforcesHandle} />
+      <Header activeTab="dashboard" onTabChange={onTabChange} ghRepoPath={settings?.githubRepo?.includes("/") ? settings.githubRepo : (settings?.githubUsername && settings?.githubRepo ? `${settings.githubUsername}/${settings.githubRepo}` : undefined)} cfHandle={settings?.codeforcesHandle} />
       
       <div className="flex-1 flex flex-col justify-between overflow-hidden p-3 min-h-0">
         <Card className="flex-1 min-h-0 flex flex-col justify-center mb-3">
