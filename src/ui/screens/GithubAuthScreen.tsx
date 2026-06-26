@@ -3,9 +3,33 @@ import Button from "../components/Button";
 import Stepper from "../components/Stepper";
 import Footer from "../components/Footer";
 import { useApi } from "../contexts/ApiContext";
+import { safeErrorString } from "../utils/errors";
 import Logo from "../../assets/logo.png"
 
-export default function GithubAuthScreen({ onNext }: { onNext: () => void }) {
+interface Props {
+  onNext: () => void;
+  onBack: () => void;
+}
+
+function friendlyOAuthError(msg: string): string {
+  if (!msg) return "Authorization failed. Please try again.";
+  const lower = msg.toLowerCase();
+  if (lower.includes("access_denied") || lower.includes("cancel")) {
+    return "Authorization was canceled.";
+  }
+  if (lower.includes("state mismatch") || lower.includes("csrf")) {
+    return "Security check failed. Please try again.";
+  }
+  if (lower.includes("configured") || lower.includes("network error") || lower.includes("fetch")) {
+    return "Could not reach the authentication server. Check your internet connection.";
+  }
+  if (lower.includes("token_exchange") || lower.includes("github")) {
+    return "GitHub returned an error during authorization.";
+  }
+  return "An unexpected error occurred. Please try again.";
+}
+
+export default function GithubAuthScreen({ onNext, onBack }: Props) {
   const { connectGitHub } = useApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -16,16 +40,17 @@ export default function GithubAuthScreen({ onNext }: { onNext: () => void }) {
     try {
       await connectGitHub();
       onNext();
-    } catch (err: any) {
-      setError(err.message || "OAuth failed. Please try again.");
+    } catch (err: unknown) {
+      setError(friendlyOAuthError(safeErrorString(err)));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-full items-center p-6 bg-[#F4F4F5]">
-      <div className="flex-1 flex flex-col items-center mt-6 w-full max-w-xs">
+    <div className="flex flex-col h-full bg-[#F4F4F5]">
+      <div className="flex-1 flex flex-col items-center p-6">
+        <div className="flex flex-col items-center w-full max-w-xs mt-6">
         <img src={Logo} className="w-24 h-24 rounded-full border-4 border-[#00C853] mb-8 bg-white object-cover" alt="CodeSync" />
 
         <Stepper step={1} total={3} />
@@ -57,7 +82,14 @@ export default function GithubAuthScreen({ onNext }: { onNext: () => void }) {
           <p className="text-center font-mono text-[12px] text-gray-500 mt-2">
             You can revoke access at any time.
           </p>
+
+          <div className="mt-6">
+            <Button variant="ghost" size="auto" onClick={onBack}>
+              ← Back
+            </Button>
+          </div>
         </div>
+      </div>
       </div>
 
       <Footer />

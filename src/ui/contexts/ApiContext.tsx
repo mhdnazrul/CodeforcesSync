@@ -18,8 +18,6 @@ export interface ApiContextType {
   stats: Stats | null;
   isOnboarded: boolean;
   isLoading: boolean;
-  onboardingStep: string;
-  setOnboardingStep: (step: string) => void;
   connectGitHub: () => Promise<void>;
   connectCodeforces: (handle: string) => Promise<void>;
   linkRepository: (url: string, subdirectory: string) => Promise<void>;
@@ -37,11 +35,11 @@ function buildStats(s: AppSettings): Stats {
   const rawWeekly = getWeeklyProgress(s.solvedDays);
   return {
     currentStreak: s.currentStreak,
-    bestStreak: 0, // TODO: Compute from historical data once backend tracks it
+    bestStreak: 0,
     weeklyProgress: rawWeekly.map((d, i) => ({ ...d, day: SHORT_DAY_LABELS[i] })),
-    solvedPieData: [], // TODO: Fetch aggregate submission stats from Codeforces API
-    submissions: { tle: 0, wa: 0, rte: 0, mle: 0 }, // TODO: Fetch from Codeforces API
-    totalAC: 0, // TODO: Fetch total accepted count from Codeforces API
+    solvedPieData: [],
+    submissions: { tle: 0, wa: 0, rte: 0, mle: 0 },
+    totalAC: 0,
   };
 }
 
@@ -49,9 +47,8 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [onboardingStep, setOnboardingStepState] = useState<string>("welcome");
 
-  const isOnboarded = !!(settings?.githubRepo && settings?.codeforcesHandle);
+  const isOnboarded = !!(settings?.githubToken && settings?.githubRepo && settings?.codeforcesHandle);
 
   useEffect(() => {
     store.getSettings().then((s) => {
@@ -63,7 +60,7 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const listener = (message: { type: string }) => {
-      if (message.type === "SYNC_SUCCESS" || message.type === "TOKEN_EXPIRED") {
+      if (message.type === "SYNC_SUCCESS" || message.type === "TOKEN_EXPIRED" || message.type === "OAUTH_COMPLETE") {
         store.getSettings().then((s) => {
           setSettings(s);
           setStats(buildStats(s));
@@ -74,15 +71,12 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
     return () => chrome.runtime.onMessage.removeListener(listener);
   }, []);
 
-  const setOnboardingStep = (step: string) => {
-    setOnboardingStepState(step);
-  };
-
   const connectGitHub = async () => {
-    // TODO: Replace with real GitHub OAuth flow.
-    // This function exists as a placeholder — the OAuth redirect will set
-    // githubToken and githubUsername. For now the user can configure these
-    // in the Settings screen directly.
+    const response = await chrome.runtime.sendMessage({ type: "OAUTH_START" });
+    if (!response || response.error) throw new Error(response?.error || "OAuth failed");
+    const s = await store.getSettings();
+    setSettings(s);
+    setStats(buildStats(s));
   };
 
   const connectCodeforces = async (handle: string) => {
@@ -103,7 +97,6 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
     const s = await store.getSettings();
     setSettings(s);
     setStats(buildStats(s));
-    setOnboardingStepState("");
   };
 
   const saveSettingsFn = async (newSettings: Partial<AppSettings>) => {
@@ -117,7 +110,6 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
     await store.clearSettings();
     setSettings(defaultSettings);
     setStats(buildStats(defaultSettings));
-    setOnboardingStepState("welcome");
   };
 
   return (
@@ -127,8 +119,6 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
         stats,
         isOnboarded,
         isLoading,
-        onboardingStep,
-        setOnboardingStep,
         connectGitHub,
         connectCodeforces,
         linkRepository,

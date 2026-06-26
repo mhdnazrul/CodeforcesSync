@@ -3,7 +3,7 @@ import React from "react";
 export default function Footer() {
   return (
     <div className="w-full text-center py-4 bg-gray-50/50 mt-auto">
-      <p className="text-[11px] text-gray-500 font-mono">
+      <p className="text-[10px] text-gray-500 font-mono whitespace-nowrap">
         Having Issues?{" "}
         <a 
           href="https://github.com/mhdnazrul/CodeforcesSync/issues" 

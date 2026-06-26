@@ -4,8 +4,9 @@ import Footer from "../components/Footer";
 import Logo from "../../assets/logo.png"
 export default function WelcomeScreen({ onNext }: { onNext: () => void }) {
   return (
-    <div className="flex flex-col h-full items-center p-6 bg-[#F4F4F5]">
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xs">
+    <div className="flex flex-col h-full bg-[#F4F4F5]">
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <div className="flex flex-col items-center w-full max-w-xs">
         <img src={Logo} className="w-32 h-32 rounded-full border-4 border-[#00C853] mb-6 bg-white object-cover" alt="CodeSync" />
 
         <div className="relative mb-6">
@@ -34,6 +35,7 @@ export default function WelcomeScreen({ onNext }: { onNext: () => void }) {
             This Will take less than 2 minutes
           </p>
         </div>
+      </div>
       </div>
 
       <Footer />

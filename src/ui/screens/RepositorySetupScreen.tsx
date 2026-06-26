@@ -4,18 +4,26 @@ import Stepper from "../components/Stepper";
 import Input from "../components/Input";
 import Footer from "../components/Footer";
 import { useApi } from "../contexts/ApiContext";
+import { safeErrorString, validateGithubRepo } from "../utils/errors";
 import Logo from "../../assets/logo.png"
 
-export default function RepositorySetupScreen({ onNext }: { onNext: () => void }) {
+interface Props {
+  onNext: () => void;
+  onBack: () => void;
+}
+
+export default function RepositorySetupScreen({ onNext, onBack }: Props) {
   const { linkRepository } = useApi();
   const [url, setUrl] = useState("");
   const [subdir, setSubdir] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [urlError, setUrlError] = useState("");
 
   const handleFinish = async () => {
-    if (!url.trim()) {
-      setError("Repository URL is required");
+    const validationError = validateGithubRepo(url);
+    if (validationError) {
+      setUrlError(validationError);
       return;
     }
     setLoading(true);
@@ -23,16 +31,17 @@ export default function RepositorySetupScreen({ onNext }: { onNext: () => void }
     try {
       await linkRepository(url, subdir);
       onNext();
-    } catch (err: any) {
-      setError(err.message || "Failed to link repository");
+    } catch (err: unknown) {
+      setError(safeErrorString(err) || "Failed to link repository");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col justify-between h-full p-3 box-border bg-[#F4F4F5] overflow-hidden">
-      <div className="flex-1 flex flex-col items-center justify-center w-full max-w-xs mx-auto min-h-0">
+    <div className="flex flex-col h-full bg-[#F4F4F5] overflow-hidden">
+      <div className="flex-1 flex flex-col items-center justify-center p-3 box-border">
+        <div className="flex flex-col items-center w-full max-w-xs min-h-0">
         <img src={Logo} className="w-16 h-16 rounded-full border-2 border-[#00C853] mb-4 bg-white object-cover shrink-0" alt="CodeSync" />
 
         <Stepper step={3} total={3} />
@@ -48,8 +57,8 @@ export default function RepositorySetupScreen({ onNext }: { onNext: () => void }
               label="Repository URL"
               placeholder="Paste the repository URL to push your submissions to."
               value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              error={error}
+              onChange={(e) => { setUrl(e.target.value); setUrlError(""); }}
+              error={urlError || error}
             />
             <Input
               label="Subdirectory (Optional)"
@@ -66,7 +75,14 @@ export default function RepositorySetupScreen({ onNext }: { onNext: () => void }
           <Button variant="primary" size="full" onClick={handleFinish} isLoading={loading}>
             Finish Setup
           </Button>
+
+          <div className="mt-3">
+            <Button variant="ghost" size="auto" onClick={onBack}>
+              ← Back
+            </Button>
+          </div>
         </div>
+      </div>
       </div>
 
       <Footer />

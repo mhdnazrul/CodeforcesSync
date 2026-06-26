@@ -18,7 +18,7 @@ const credentialStore: GithubCredentialStore = {
     await store.saveSettings({ githubToken: token, githubUsername: username });
   },
   clear: async () => {
-    await store.clearSettings();
+    await store.saveSettings({ githubToken: "", githubUsername: "" });
   },
 };
 
@@ -46,4 +46,118 @@ startScheduler(alarms, () => {
   ).catch((e) =>
     console.error("CodeforcesSync: Top-level sync exception:", e)
   );
+});
+
+// ── OAuth ────────────────────────────────────────────────────────────────────
+
+function base64url(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...bytes))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function randomHex(len: number): string {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function handleOAuthFlow(): Promise<void> {
+  console.log("CodeforcesSync: [OAuth] Entering handleOAuthFlow");
+  console.log("CodeforcesSync: [OAuth] chrome.identity available:", typeof chrome.identity !== "undefined");
+  console.log("CodeforcesSync: [OAuth] chrome.identity.getRedirectURL available:", typeof chrome.identity?.getRedirectURL === "function");
+
+  console.log("CodeforcesSync: [OAuth] Generating PKCE code verifier...");
+  const codeVerifier = base64url(crypto.getRandomValues(new Uint8Array(64)));
+  console.log("CodeforcesSync: [OAuth] codeVerifier length:", codeVerifier.length);
+
+  console.log("CodeforcesSync: [OAuth] Computing SHA-256 digest...");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
+  const codeChallenge = base64url(new Uint8Array(digest));
+  console.log("CodeforcesSync: [OAuth] codeChallenge generated:", codeChallenge.slice(0, 16) + "...");
+
+  console.log("CodeforcesSync: [OAuth] Generating random state...");
+  const state = randomHex(16);
+  console.log("CodeforcesSync: [OAuth] state:", state);
+
+  console.log("CodeforcesSync: [OAuth] Storing oauthVerifier and oauthState in chrome.storage.session...");
+  await chrome.storage.session.set({ oauthVerifier: codeVerifier, oauthState: state });
+  console.log("CodeforcesSync: [OAuth] session storage written successfully");
+
+  console.log("CodeforcesSync: [OAuth] Reading VITE_OAUTH_BROKER_URL env var...");
+  const brokerUrl = import.meta.env.VITE_OAUTH_BROKER_URL as string | undefined;
+  console.log("CodeforcesSync: [OAuth] VITE_OAUTH_BROKER_URL =", brokerUrl ?? "(undefined)");
+  if (!brokerUrl) throw new Error("VITE_OAUTH_BROKER_URL is not configured");
+
+  console.log("CodeforcesSync: [OAuth] Calling chrome.identity.getRedirectURL...");
+  const redirectUri = chrome.identity.getRedirectURL("oauth-callback");
+  console.log("CodeforcesSync: [OAuth] redirectUri:", redirectUri);
+
+  const authUrl =
+    `${brokerUrl}/api/oauth/authorize` +
+    `?redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&state=${encodeURIComponent(state)}` +
+    `&code_challenge=${encodeURIComponent(codeChallenge)}` +
+    `&code_challenge_method=S256` +
+    `&code_verifier=${encodeURIComponent(codeVerifier)}`;
+
+  console.log("CodeforcesSync: [OAuth] Constructed authUrl:", authUrl.slice(0, 120) + "...");
+  console.log("CodeforcesSync: [OAuth] Calling chrome.identity.launchWebAuthFlow...");
+
+  const responseUrl = await chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true });
+  console.log("CodeforcesSync: [OAuth] launchWebAuthFlow returned:", responseUrl ? "URL (" + responseUrl.length + " chars)" : "null/undefined");
+  if (!responseUrl) throw new Error("OAuth flow returned no response URL");
+
+  console.log("CodeforcesSync: [OAuth] Parsing response URL params...");
+  const params = new URL(responseUrl).searchParams;
+
+  const oauthError = params.get("error");
+  console.log("CodeforcesSync: [OAuth] oauthError param:", oauthError ?? "(none)");
+  if (oauthError) throw new Error(`GitHub OAuth error: ${oauthError}`);
+
+  const returnedToken = params.get("token");
+  const returnedState = params.get("state");
+  const username = params.get("username") || "unknown";
+  console.log("CodeforcesSync: [OAuth] token present:", !!returnedToken, "| state:", returnedState, "| username:", username);
+
+  if (!returnedToken) throw new Error("No access token returned from OAuth broker");
+
+  console.log("CodeforcesSync: [OAuth] Verifying CSRF state...");
+  const stored = await chrome.storage.session.get(["oauthState"]);
+  console.log("CodeforcesSync: [OAuth] stored.oauthState:", stored.oauthState, "| returnedState:", returnedState);
+  if (returnedState !== stored.oauthState) throw new Error("OAuth state mismatch — possible CSRF");
+
+  console.log("CodeforcesSync: [OAuth] Saving token to credentialStore...");
+  await credentialStore.saveToken(returnedToken, username);
+
+  console.log("CodeforcesSync: [OAuth] Cleaning up session storage...");
+  await chrome.storage.session.remove(["oauthVerifier", "oauthState"]);
+
+  console.log("CodeforcesSync: [OAuth] Broadcasting OAUTH_COMPLETE...");
+  chrome.runtime.sendMessage({ type: "OAUTH_COMPLETE", success: true }).catch(() => {});
+  console.log("CodeforcesSync: [OAuth] handleOAuthFlow completed successfully");
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "OAUTH_START") {
+    console.log("CodeforcesSync: [OAuth] OAUTH_START message received");
+    handleOAuthFlow()
+      .then(() => {
+        console.log("CodeforcesSync: [OAuth] handleOAuthFlow succeeded, sending success response");
+        sendResponse({ success: true });
+      })
+      .catch((err: Error) => {
+        console.error("CodeforcesSync: [OAuth] handleOAuthFlow threw:", err.message, err);
+        console.error("CodeforcesSync: [OAuth] Full error object:", JSON.stringify(err, Object.getOwnPropertyNames(err)));
+        sendResponse({ error: err.message });
+      });
+    return true;
+  }
+  if (message.type === "OAUTH_STATUS") {
+    store.getSettings().then((s) => {
+      sendResponse({ connected: !!s.githubToken, githubUsername: s.githubUsername });
+    });
+    return true;
+  }
 });
