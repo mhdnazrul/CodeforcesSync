@@ -1,37 +1,10 @@
 import { github } from "../utils/githubAPI";
 import { getSettings, saveSettings } from "../utils/storage";
-import { generateFilePath } from "../utils/formatters";
-import { computeStreak } from "../statistics";
-import { toLocalDateString } from "../shared/utils/date";
-import { unescapeHtml, utf8ToBase64 } from "../shared/utils/encoding";
-import {
-  generateSubmissionUrl,
-  fetchRssFeed,
-  isAcceptedSubmission,
-  getProblemId,
-  createApiUrl,
-} from "../codeforces";
+import { unescapeHtml } from "../shared/utils/encoding";
+import { generateSubmissionUrl } from "../codeforces";
 import type { Submission } from "../shared/types/codeforces";
-
-let isSyncing = false;
-
-interface RetryState {
-  consecutiveFailures: number;
-  lastFailureTime: number;
-  lastFailureReason: string;
-  backoffUntil: number;
-}
-
-const retryState: RetryState = {
-  consecutiveFailures: 0,
-  lastFailureTime: 0,
-  lastFailureReason: "",
-  backoffUntil: 0,
-};
-
-const MAX_CONSECUTIVE_FAILURES = 8;
-const BACKOFF_BASE_MS = 30_000;
-const BACKOFF_CAP_MS = 960_000;
+import { createRetryEngine, runSync } from "../sync";
+import type { SyncServices, SyncStorage } from "../sync";
 
 chrome.alarms.get("codeforces-sync", (existing) => {
   if (!existing) {
@@ -39,10 +12,43 @@ chrome.alarms.get("codeforces-sync", (existing) => {
   }
 });
 
+const retry = createRetryEngine();
+
+const storage: SyncStorage = {
+  getSettings,
+  saveSettings,
+};
+
+const services: SyncServices = {
+  findCodeforcesTab: async () => {
+    const tabs = await chrome.tabs.query({ url: "*://*.codeforces.com/*" });
+    const cfTabId = tabs.length > 0 && tabs[0].id ? tabs[0].id : null;
+    if (cfTabId !== null) {
+      const readyTab = tabs.find((t) => t.status === "complete") ?? tabs[0];
+      console.log(
+        `CodeforcesSync: Using CF tab #${readyTab.id} ` +
+          `(url: ${readyTab.url?.slice(0, 60)}…) for API fetch.`,
+      );
+    }
+    return cfTabId;
+  },
+  fetchTier1: async (cfTabId, apiUrl) => {
+    const result = await fetchCodeforcesSubmissionsTier1(cfTabId, apiUrl);
+    if (result !== null) retry.recordSuccess();
+    return result;
+  },
+  extractSource: (sub) => fetchSourceCode(sub),
+  uploadFile: (username, repo, path, contentBase64, message) =>
+    github.uploadFile(username, repo, path, contentBase64, message),
+  notify: (event) => {
+    chrome.runtime.sendMessage({ type: event }).catch(() => {});
+  },
+};
+
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === "codeforces-sync") {
     console.log("CodeforcesSync: Running background sync interval…");
-    syncSolutions().catch((e) =>
+    runSync(services, storage, retry).catch((e) =>
       console.error("CodeforcesSync: Top-level sync exception:", e)
     );
   }
@@ -146,60 +152,6 @@ async function fetchSourceCode(sub: Submission): Promise<string | null> {
   }
 }
 
-async function updateStreak(): Promise<void> {
-  try {
-    const settings = await getSettings();
-    const result = computeStreak(
-      settings.currentStreak,
-      settings.lastAcceptedDate,
-      settings.solvedDays,
-    );
-    await saveSettings({
-      currentStreak: result.newStreak,
-      lastAcceptedDate: result.newLastAcceptedDate,
-      solvedDays: result.updatedSolvedDays,
-    });
-    console.log(`CodeforcesSync: Streak updated → ${result.newStreak}`);
-  } catch (e) {
-    console.error("CodeforcesSync: Streak update error", e);
-  }
-}
-
-function recordApiFailure(reason: string): number {
-  retryState.consecutiveFailures = Math.min(
-    retryState.consecutiveFailures + 1,
-    MAX_CONSECUTIVE_FAILURES
-  );
-  retryState.lastFailureTime = Date.now();
-  retryState.lastFailureReason = reason;
-
-  const delayMs = Math.min(
-    BACKOFF_BASE_MS * Math.pow(2, retryState.consecutiveFailures - 1),
-    BACKOFF_CAP_MS
-  );
-  retryState.backoffUntil = Date.now() + delayMs;
-
-  console.warn(
-    `CodeforcesSync: [Backoff] Failure #${retryState.consecutiveFailures} — ` +
-      `reason: "${reason}". ` +
-      `Next retry allowed in ${Math.round(delayMs / 1000)}s ` +
-      `(at ${new Date(retryState.backoffUntil).toLocaleTimeString()}).`
-  );
-
-  return delayMs;
-}
-
-function recordApiSuccess(): void {
-  if (retryState.consecutiveFailures > 0) {
-    console.log(
-      `CodeforcesSync: [Backoff] API recovered after ${retryState.consecutiveFailures} failure(s). Resetting backoff.`
-    );
-  }
-  retryState.consecutiveFailures = 0;
-  retryState.lastFailureTime = 0;
-  retryState.lastFailureReason = "";
-  retryState.backoffUntil = 0;
-}
 
 interface FetchResult {
   ok: boolean;
@@ -371,7 +323,6 @@ async function fetchCodeforcesSubmissionsTier1(
         `CodeforcesSync: [API Tier 1] Attempt ${attempt} — SUCCESS. ` +
           `Received ${resultArray.length} submission(s).`
       );
-      recordApiSuccess();
       return resultArray;
     } catch (e: unknown) {
       lastError = e instanceof Error ? e.message : String(e);
@@ -386,213 +337,4 @@ async function fetchCodeforcesSubmissionsTier1(
       `Last error: "${lastError}". Attempting Tier 2 (RSS).`
   );
   return null;
-}
-
-/**
- * Dual-Tier Fetching:
- *   Tier 1 (API via Injected Tab) → Tier 2 (RSS/Atom Feed)
- *
- * If Tier 1 succeeds, use its result.
- * If Tier 1 fails or no CF tab is open, attempt Tier 2.
- * Only activate exponential backoff if BOTH tiers fail.
- */
-async function fetchCodeforcesSubmissionsDualTier(
-  cfTabId: number | null,
-  handle: string,
-  apiUrl: string
-): Promise<Submission[] | null> {
-  if (cfTabId !== null) {
-    console.log("CodeforcesSync: [Dual Tier] Attempting Tier 1 (Official API)…");
-    const tier1Result = await fetchCodeforcesSubmissionsTier1(
-      cfTabId,
-      apiUrl
-    );
-    if (tier1Result !== null) {
-      return tier1Result;
-    }
-  } else {
-    console.log(
-      "CodeforcesSync: [Dual Tier] No CF tab open. Skipping Tier 1, attempting Tier 2 (RSS).…"
-    );
-  }
-
-  console.log("CodeforcesSync: [Dual Tier] Attempting Tier 2 (RSS Feed)…");
-  const tier2Result = await fetchRssFeed(handle);
-  if (tier2Result !== null) {
-    recordApiSuccess();
-    return tier2Result;
-  }
-
-  console.error(
-    "CodeforcesSync: [Dual Tier] Both Tier 1 (API) and Tier 2 (RSS) failed. " +
-      "Activating exponential backoff."
-  );
-  recordApiFailure("Dual-tier fetch: both API and RSS failed");
-  return null;
-}
-
-async function syncSolutions(): Promise<void> {
-  if (isSyncing) {
-    console.log("CodeforcesSync: Sync already in progress, skipping.");
-    return;
-  }
-
-  if (retryState.backoffUntil > Date.now()) {
-    const waitSec = Math.round(
-      (retryState.backoffUntil - Date.now()) / 1000
-    );
-    console.log(
-      `CodeforcesSync: [Backoff] In cooldown — ${waitSec}s remaining ` +
-        `(last failure: "${retryState.lastFailureReason}"). Skipping this tick.`
-    );
-    return;
-  }
-
-  isSyncing = true;
-
-  try {
-    const settings = await getSettings();
-    const now = new Date();
-    const todayStr = toLocalDateString(now);
-
-    const lastAccepted = settings.lastAcceptedDate;
-    if (lastAccepted) {
-      const yesterday = new Date(now);
-      yesterday.setDate(now.getDate() - 1);
-      const yesterdayStr = toLocalDateString(yesterday);
-
-      if (lastAccepted !== todayStr && lastAccepted !== yesterdayStr) {
-        if (settings.currentStreak !== 0) {
-          console.log("CodeforcesSync: Streak broken — resetting to 0");
-          await saveSettings({ currentStreak: 0 });
-          chrome.runtime.sendMessage({ type: "SYNC_SUCCESS" }).catch(() => {});
-        }
-      }
-    }
-
-    if (
-      !settings.githubToken ||
-      !settings.githubRepo ||
-      !settings.githubUsername ||
-      !settings.codeforcesHandle
-    ) {
-      console.log(
-        "CodeforcesSync: Sync aborted — missing GitHub credentials or Codeforces handle."
-      );
-      return;
-    }
-
-    const tabs = await chrome.tabs.query({ url: "*://*.codeforces.com/*" });
-    const cfTabId = tabs.length > 0 && tabs[0].id ? tabs[0].id : null;
-
-    if (cfTabId !== null) {
-      const readyTab = tabs.find((t) => t.status === "complete") ?? tabs[0];
-      console.log(
-        `CodeforcesSync: Using CF tab #${readyTab.id} ` +
-          `(url: ${readyTab.url?.slice(0, 60)}…) for API fetch.`
-      );
-    } else {
-      console.log(
-        "CodeforcesSync: No Codeforces tab open. Will attempt RSS feed fallback."
-      );
-    }
-
-    const apiUrl = createApiUrl(settings.codeforcesHandle.trim());
-
-    const submissions = await fetchCodeforcesSubmissionsDualTier(
-      cfTabId,
-      settings.codeforcesHandle.trim(),
-      apiUrl
-    );
-
-    if (!submissions) {
-      return;
-    }
-
-    const acceptedSubmissions = submissions.filter(isAcceptedSubmission);
-
-    if (acceptedSubmissions.length === 0) {
-      console.log("CodeforcesSync: No accepted submissions in latest batch.");
-      return;
-    }
-
-    const synced = [...(settings.syncedSubmissions || [])];
-
-    for (const sub of [...acceptedSubmissions].reverse()) {
-      const submissionId = sub.id.toString();
-
-      if (synced.includes(submissionId)) continue;
-
-      if (
-        !sub.problem?.index ||
-        !sub.problem?.name ||
-        !sub.programmingLanguage
-      ) {
-        console.error(
-          `CodeforcesSync: Submission ${submissionId} has malformed problem data — skipping.`,
-          sub
-        );
-        continue;
-      }
-
-      const problemId = getProblemId(sub);
-      const problemName = sub.problem.name;
-      const language = sub.programmingLanguage;
-
-      console.log(
-        `CodeforcesSync: Processing new submission ${submissionId} — ${problemId} (${language})`
-      );
-
-      const code = await fetchSourceCode(sub);
-      if (!code) {
-        console.error(
-          `CodeforcesSync: Source extraction failed for ${submissionId}. Will retry next cycle.`
-        );
-        continue;
-      }
-
-      const path = generateFilePath(
-        problemId,
-        problemName,
-        language,
-        settings.useSubdirectory,
-        settings.subdirectoryName
-      );
-
-      const commitMsg = `Sync Codeforces: ${problemId} - ${problemName} [${language}]`;
-      const contentBase64 = utf8ToBase64(code);
-
-      console.log(
-        `CodeforcesSync: Uploading ${path} → ${settings.githubUsername}/${settings.githubRepo}`
-      );
-
-      const success = await github.uploadFile(
-        settings.githubUsername,
-        settings.githubRepo,
-        path,
-        contentBase64,
-        commitMsg
-      );
-
-      if (success) {
-        console.log(`CodeforcesSync: ✅ Synced ${submissionId} to GitHub`);
-        synced.push(submissionId);
-        await saveSettings({ syncedSubmissions: synced });
-        await updateStreak();
-        chrome.runtime.sendMessage({ type: "SYNC_SUCCESS" }).catch(() => {});
-      } else {
-        console.error(
-          `CodeforcesSync: ❌ GitHub push failed for ${submissionId} — will retry next cycle.`
-        );
-      }
-
-      await new Promise((r) => setTimeout(r, 2500));
-    }
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.error("CodeforcesSync: Unexpected error in sync loop:", msg);
-    recordApiFailure(`Unexpected error: ${msg}`);
-  } finally {
-    isSyncing = false;
-  }
 }
