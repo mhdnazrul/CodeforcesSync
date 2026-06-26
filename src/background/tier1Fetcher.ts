@@ -1,13 +1,6 @@
 import type { Submission } from "../shared/types/codeforces";
 import type { TabsService, ScriptingService } from "../shared/types/browser";
-
-interface FetchResult {
-  ok: boolean;
-  status: number;
-  body: unknown;
-  isHtml: boolean;
-  error?: string;
-}
+import { fetchSubmissions, type InjectedFetchResult } from "../content/tier1Fetcher";
 
 export async function fetchCodeforcesSubmissionsTier1(
   cfTabId: number,
@@ -45,52 +38,11 @@ export async function fetchCodeforcesSubmissionsTier1(
 
       const injectionResult = await scripting.executeScript({
         target: { tabId: cfTabId },
-        func: (async (url: string) => {
-          try {
-            const res = await fetch(url, {
-              method: "GET",
-              credentials: "include",
-              headers: {
-                Accept: "application/json",
-                "Cache-Control": "no-cache",
-                Pragma: "no-cache",
-              },
-            });
-
-            const contentType = res.headers.get("content-type") ?? "";
-            const isHtml = contentType.includes("text/html");
-
-            if (!res.ok) {
-              return { ok: false, status: res.status, body: null, isHtml };
-            }
-
-            if (isHtml) {
-              return { ok: false, status: res.status, body: null, isHtml: true };
-            }
-
-            let body: unknown = null;
-            try {
-              body = await res.json();
-            } catch {
-              return {
-                ok: false,
-                status: res.status,
-                body: null,
-                isHtml: false,
-                error: "JSON parse failed",
-              };
-            }
-
-            return { ok: true, status: res.status, body, isHtml: false };
-          } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            return { ok: false, status: 0, body: null, isHtml: false, error: msg };
-          }
-        }) as (...args: unknown[]) => unknown,
+        func: fetchSubmissions as (...args: unknown[]) => unknown,
         args: [apiUrl],
       });
 
-      const raw = (injectionResult?.[0]?.result) as FetchResult | undefined;
+      const raw = (injectionResult?.[0]?.result) as InjectedFetchResult | undefined;
 
       if (!raw) {
         lastError = "Script injection returned no result";
