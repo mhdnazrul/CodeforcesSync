@@ -1,99 +1,77 @@
 <div align="center">
   <img src="public/icons/icon128.png" alt="CodeforcesSync Logo" width="128" />
-  <h1>CodeforcesSync 🚀</h1>
+  <h1>CodeforcesSync</h1>
   <p><strong>Automatically sync your accepted Codeforces solutions to GitHub in real-time.</strong></p>
 
   <p>
+    <a href="https://github.com/mhdnazrul/CodeforcesSync/releases"><img src="https://img.shields.io/github/v/release/mhdnazrul/CodeforcesSync?style=for-the-badge&color=blue" alt="Release Badge"/></a>
+    <a href="https://github.com/mhdnazrul/CodeforcesSync/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-success.svg?style=for-the-badge" alt="License Badge"/></a>
+    <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=for-the-badge&logo=typescript" alt="TypeScript"/></a>
+    <a href="https://react.dev"><img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react" alt="React"/></a>
+    <a href="https://developer.chrome.com/docs/extensions/mv3/"><img src="https://img.shields.io/badge/Chrome%20Extension-MV3-4285F4?style=for-the-badge&logo=googlechrome" alt="Chrome Extension MV3"/></a>
     <a href="https://github.com/mhdnazrul/CodeforcesSync/stargazers"><img src="https://img.shields.io/github/stars/mhdnazrul/CodeforcesSync?style=for-the-badge&color=yellow" alt="Stars Badge"/></a>
     <a href="https://github.com/mhdnazrul/CodeforcesSync/network/members"><img src="https://img.shields.io/github/forks/mhdnazrul/CodeforcesSync?style=for-the-badge&color=orange" alt="Forks Badge"/></a>
-    <a href="https://github.com/mhdnazrul/CodeforcesSync/pulls"><img src="https://img.shields.io/github/issues-pr/mhdnazrul/CodeforcesSync?style=for-the-badge&color=blue" alt="Pull Requests Badge"/></a>
-    <a href="https://github.com/mhdnazrul/CodeforcesSync/issues"><img src="https://img.shields.io/github/issues/mhdnazrul/CodeforcesSync?style=for-the-badge&color=red" alt="Issues Badge"/></a>
-    <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-success.svg?style=for-the-badge" alt="License Badge"/></a>
-    <a href="docs/"><img src="https://img.shields.io/badge/Docs-Architecture-blue.svg?style=for-the-badge" alt="Documentation Badge"/></a>
   </p>
 </div>
 
-<hr />
+---
 
-## 📑 Table of Contents
-- [About The Project](#-about-the-project)
-- [Screenshots](#-screenshots)
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [How It Works](#-how-it-works)
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Usage](#-usage)
-- [Project Structure](#-project-structure)
-- [Future Improvements](#-future-improvements)
-- [Contributing](#-contributing)
-- [License](#-license)
+## Overview
 
-## 📌 About The Project
+**CodeforcesSync** is a Chrome extension for competitive programmers. It bridges your Codeforces solving activity with your GitHub profile by automatically detecting accepted ("Accepted") verdicts and pushing the source code to a repository of your choice.
 
-**CodeforcesSync** is a powerful Chrome Extension designed for competitive programmers. It seamlessly bridges your Codeforces journey with your GitHub profile. 
-
-Whenever you receive an **"Accepted"** verdict on Codeforces, this extension automatically detects the submission, extracts your source code, and directly pushes it to a chosen GitHub repository. It works entirely in the background using the official GitHub API, ensuring your coding profile stays up to date without any manual effort.
-
-## 📸 Screenshots
-
-| Disconnected State | Settings Configuration | Connected State |
-| :---: | :---: | :---: |
-| <img src="public/icons/disconnected.png" alt="Disconnected" width="250"/> | <img src="public/icons/settings.png" alt="Settings" width="250"/> | <img src="public/icons/connected.png" alt="Connected" width="250"/> |
-
-## ✨ Features
-
-- ⚡ **Automated Background Syncing**: No manual copying or committing required. If you solve it, it syncs.
-- 🔥 **Real-time Streak Tracking**: Gamify your daily progress with an integrated solving streak tracker right inside the visual popup!
-- 🧠 **Smart Language Detection**: Parses exact language tags (e.g., `GNU C++20`, `PyPy 3`) and maps them to accurate file extensions (`.cpp`, `.py`, `.js`, etc.).
-- 🛡️ **Cloudflare Bot Bypass**: Intelligently utilizes your active Codeforces tab session to safely fetch code without triggering aggressive Cloudflare blockages.
-- 📁 **Custom Subdirectories**: Store submissions in a specific folder (like `solutions/`) by configuring custom repository paths natively from the popup.
-- ⏱️ **Smart API Throttling**: Safely manages GitHub Secondary Rate limits and Codeforces API limits behind the scenes using asynchronous delays.
-
-## 📚 Documentation
-
-Architecture and engineering documentation is available in the [`docs/`](docs/) directory:
-
-- **[Architecture](docs/ARCHITECTURE.md)** — Module design, dependency rules, data flow
-- **[Migration Plan](docs/AMS.md)** — 12-phase architecture migration specification
-- **[Engineering Constitution](docs/ENGINEERING_CONSTITUTION.md)** — Project rules for humans and AI
-- **[Architecture Decision Records](docs/ADR/)** — Design decisions and trade-offs
+The extension runs entirely in the background — no manual copying, no manual committing. Solve a problem, and it appears on GitHub.
 
 ---
 
-## 🛠 Tech Stack
+## Features
 
-CodeforcesSync is built with modern web technologies:
-
-- **React 19** - Powerful User Interface layout
-- **TypeScript** - Type-safe programming
-- **Tailwind CSS v4** - Beautiful responsive styling
-- **Vite** - Lightning-fast frontend build tool
-- **Chrome Extension API (Manifest V3)** - Core extension functionality
-- **GitHub REST API** - Uploading files and committing code natively
-
-## ⚙️ How It Works
-
-1. **Polling**: The Service Worker (`background.ts`) relies on Chrome Alarms to silently poll the official Codeforces API (`user.status`) every minute.
-2. **Filtering**: It filters your recent submissions to find new **Accepted (OK)** verdicts that haven't been previously synced.
-3. **Fetching Code**: Instead of a basic `fetch` (which Cloudflare blocks), the extension securely injects a fetch execution script into your currently open Codeforces tab to safely extract the raw source code.
-4. **Pushing to GitHub**: The code is encoded in Base64 and automatically committed to your linked GitHub repository via the GitHub REST API.
+- **Automated syncing** — Accepted submissions are detected and pushed to GitHub automatically.
+- **Real-time streak tracking** — Built-in dashboard shows your current streak, best streak, and weekly calendar.
+- **Smart language detection** — Parses Codeforces language tags (GNU C++20, PyPy 3, etc.) and maps them to standard file extensions (.cpp, .py, .js, ...).
+- **Cloudflare bypass** — Uses your active Codeforces tab session to fetch source code without triggering Cloudflare blocks.
+- **Custom subdirectories** — Organize solutions into a specific folder (e.g., `solutions/`) via the popup settings.
+- **Rate-limit aware** — Respects GitHub secondary rate limits and Codeforces API limits with automatic backoff.
+- **OAuth authentication** — Secure GitHub OAuth flow via a stateless Vercel broker (no third-party servers see your token).
+- **Dashboard analytics** — View your solving stats: current streak, best streak, weekly progress, and Codeforces statistics (rating, rank, problems solved).
 
 ---
 
-## 🚀 Quick Start / Installation
+## Screenshots
 
-CodeforcesSync is distributed via source and Developer Mode in Chrome.
+| Welcome | GitHub Auth | Repository Setup |
+|:-------:|:-----------:|:----------------:|
+| ![Welcome](public/UI/page%201%20-%20Welcome.png) | ![GitHub Auth](public/UI/Page%202%20-%20Github%20Connection.png) | ![Repository](public/UI/Page%204%20-%20Repository%20Setup.png) |
 
-### 1. Download the Extension
-Download the latest **Pre-built Release** ZIP file from the [Releases page](https://github.com/mhdnazrul/CodeforcesSync/releases) or build it manually from source. #[**Best Oprtion**]
+| Codeforces Auth | Dashboard | Settings |
+|:---------------:|:---------:|:--------:|
+| ![Codeforces](public/UI/page%203-%20Codeforces%20Connection.png) | ![Dashboard](public/UI/page%205%20-%20finish%20to%20main%20Dashboard.png) | ![Settings](public/UI/Page%206%20-%20main%20page%20to%20setting%20page.png) |
 
-**To build from source:**
+---
+
+## Installation
+
+### Prerequisites
+
+- **Google Chrome** version **102+** (required for `chrome.storage.session` API)
+- **A GitHub account** with a repository to store solutions
+- **A Codeforces account** (the handle you solve problems under)
+
+### Option 1: GitHub Releases (Recommended)
+
+1. Go to the [Releases page](https://github.com/mhdnazrul/CodeforcesSync/releases).
+2. Download the latest `CodeforcesSync-vX.X.X.zip`.
+3. Extract the ZIP file to a folder on your computer.
+4. Open Chrome and navigate to `chrome://extensions`.
+5. Enable **Developer mode** (top-right toggle).
+6. Click **Load unpacked** and select the extracted folder.
+7. The extension is now installed. Pin it to your toolbar for easy access.
+
+### Option 2: Build from Source
+
 ```bash
 # Clone the repository
 git clone https://github.com/mhdnazrul/CodeforcesSync.git
-
-# Navigate into the project
 cd CodeforcesSync
 
 # Install dependencies
@@ -101,117 +79,281 @@ npm install
 
 # Build the extension
 npm run build
+
+# Load dist/ as an unpacked extension in Chrome
 ```
-This generates a production-ready `dist/` folder containing the compiled Chrome Extension.
-
-### 2. Load into Chrome
-1. Open Google Chrome and navigate to: `chrome://extensions/`
-2. Turn on **Developer mode** using the toggle switch in the top right corner.
-3. Click the **Load unpacked** button in the top left corner.
-4. Select the `dist` folder located inside your project directory (or the extracted `dist` folder from the Release ZIP).
-5. The extension is now installed! *(Optional: Pin it to your toolbar for easy access.)*
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
-To allow the extension to securely push code on your behalf, you need a standard GitHub Personal Access Token (PAT).
+### 1. Create a GitHub Repository
 
-### Step 1: Create a GitHub Repository
-Create a new Public or Private repository on GitHub (e.g., `Codeforces-Solutions`).
+Create a new public or private repository on GitHub (e.g., `Codeforces-Solutions`). This is where your solutions will be uploaded.
 
-### Step 2: Generate a Personal Access Token
-1. Go to **GitHub → Settings → Developer settings → Personal Access Tokens → Tokens (classic/fine-grained)**
-2. Click **Generate new token → Fine-grained token**.
-3. set **name** and **date** (e.g., `30 day` or `90 days`)
-4. **Repository access: Select repositories → (e.g., `Codeforces-Solutions`)
-5. **Permissions:**
-**Contents** → `Read & Write` <br>
-**Commit statuses** → `Read & Write` (optional)
-6. Click **Generate token** and **COPY it immediately** → **update your extension** with it.
+### 2. Set Up OAuth
 
-### Step 3: Link the Extension
-1. Click the **CodeforcesSync icon** in your Chrome toolbar.
-2. Click the **Settings** gear icon.
-3. Fill in your details:
-   - **GitHub Username**
-   - **Personal Access Token**
-   - **Codeforces Handle** (e.g., `tourist`)
-   - **Repo Name** (e.g., `Codeforces-Solutions`)
-   - *(Optional)* Check **Use Subdirectory** and enter a folder name.
-4. Click **Save**.
+The extension uses GitHub OAuth to authenticate. You need to register an OAuth App:
 
----
+1. Go to **GitHub Settings → Developer settings → OAuth Apps → New OAuth App**.
+2. Set **Application name** to `CodeforcesSync`.
+3. Set **Homepage URL** to `https://github.com/<your-username>/CodeforcesSync`.
+4. Set **Authorization callback URL** to `https://<your-vercel-deployment>.vercel.app/api/oauth/callback`.
+5. Generate a **Client Secret** and note the **Client ID**.
+6. Deploy the Vercel broker with these as environment variables (see [Deployment](docs/Deployment.md)).
 
-## 🕹️ Usage
+### 3. Link Your Accounts
 
-Once configured, the background service takes over!
+Click the CodeforcesSync icon in your Chrome toolbar and follow the onboarding wizard:
 
-1. **Keep Codeforces Active**: You must leave a Codeforces tab completely open in your browser while solving. The extension securely borrows your active Codeforces session to bypass Cloudflare Bot-Protection blockages.
-2. **Solve Problems**: Submit solutions as normally as you would!
-3. **Automatic Syncing**: Once receiving an **"Accepted"** verdict, CodeforcesSync intercepts the submission, processes the source code locally, and pushes it up to your linked repository.
+1. **Connect GitHub** — Click "Login with GitHub" to start OAuth.
+2. **Connect Codeforces** — Enter your Codeforces handle.
+3. **Link Repository** — Enter your GitHub repository URL (e.g., `https://github.com/owner/repo` or `owner/repo`).
+4. **Done** — The dashboard appears with your stats.
+
+### 4. Start Solving
+
+Keep a Codeforces tab open in your browser while solving. The extension uses your active session to fetch source code and bypass Cloudflare. Solved problems will appear in your repository automatically.
 
 ---
 
-## 📁 Project Structure
+## Usage
 
-```text
+### Dashboard
+
+The dashboard shows:
+
+- **Current streak** — Consecutive days with at least one accepted submission.
+- **Best streak** — Your longest streak ever recorded.
+- **Weekly calendar** — A 7-day grid showing which days you solved problems.
+- **Codeforces statistics** — Rating, rank, total problems solved, contributions, and friend count (fetched from the official API, cached for 10 minutes).
+
+### Syncing
+
+- The background service worker polls the Codeforces API (`user.status`) every **60 seconds** via Chrome Alarms.
+- New accepted submissions are detected, their source code is fetched (via your active CF tab or the RSS feed), and uploaded to your GitHub repository.
+- Already-synced submissions are tracked to avoid duplicates.
+- If a GitHub API call fails (network error, rate limit), the sync engine retries up to **3 times** with exponential backoff.
+
+### Settings
+
+Access settings from the gear icon in the header:
+
+- **Change repository** — Update the linked GitHub repository.
+- **Set subdirectory** — Store solutions in a specific folder.
+- **Reset all** — Clear all data and sign out.
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   Chrome Extension (MV3)                     │
+│                                                             │
+│  ┌──────────┐   ┌───────────┐   ┌───────────────────────┐  │
+│  │  Popup   │   │  Service   │   │    Content Scripts    │  │
+│  │ (React)  │◄──┤  Worker   │──►│  (injected into CF)   │  │
+│  └────┬─────┘   └─────┬─────┘   └───────────────────────┘  │
+│       │               │                                     │
+│       ▼               ▼                                     │
+│  ┌──────────┐   ┌───────────┐                               │
+│  │ Settings │   │   Sync    │   ┌──────────────────┐        │
+│  │  Store   │   │  Engine   │──►│  GitHub REST API  │        │
+│  └──────────┘   └─────┬─────┘   └──────────────────┘        │
+│                       │                                     │
+│                       ▼                                     │
+│              ┌──────────────────┐                            │
+│              │  Codeforces API  │                            │
+│              │  + RSS Feed      │                            │
+│              └──────────────────┘                            │
+└─────────────────────────────────────────────────────────────┘
+           │
+           ▼
+  ┌──────────────────┐
+  │  Vercel OAuth    │
+  │  Broker (auth)   │
+  └──────────────────┘
+```
+
+### Key Modules
+
+| Module | Location | Purpose |
+|--------|----------|---------|
+| Background | `src/background/` | Service worker lifecycle, alarm scheduling, message routing |
+| Sync Engine | `src/sync/` | Submission polling, deduplication, retry with exponential backoff |
+| GitHub | `src/github/` | GitHub REST API client, token management, file upload |
+| Codeforces | `src/codeforces/` | Codeforces API client, RSS feed parser |
+| Storage | `src/storage/` | Settings persistence with schema versioning |
+| Statistics | `src/statistics/` | Streak calculation, weekly calendar computation |
+| Browser | `src/browser/` | Abstracts `chrome.*` APIs behind typed interfaces |
+| Popup UI | `src/ui/` | React application (dashboard, settings, onboarding) |
+
+See [Architecture](docs/Architecture.md) for detailed documentation.
+
+---
+
+## Project Structure
+
+```
 CodeforcesSync/
-├── docs/                   # Architecture documentation
-├── public/                 # Static extension assets (icons, manifest)
-├── src/                    # Source code
-│   ├── background/         # Background Service Worker logic (API polling)
-│   ├── utils/              # Helper functions (storage, GitHub API mapping)
-│   ├── App.tsx             # Main React UI for the Extension Popup
-│   ├── main.tsx            # React entry point
-│   └── index.css           # Tailwind CSS styles
-├── package.json            # Node.js dependencies and scripts
-└── vite.config.ts          # Vite bundler configuration
+├── api/oauth/           # Vercel serverless functions for OAuth broker
+├── docs/                # Documentation
+│   ├── Architecture.md
+│   ├── OAuth.md
+│   ├── GitHub-Integration.md
+│   ├── Codeforces-Integration.md
+│   ├── Sync-Engine.md
+│   ├── Statistics.md
+│   ├── Caching.md
+│   ├── Repository-Validation.md
+│   ├── Security.md
+│   ├── Deployment.md
+│   ├── Development.md
+│   ├── Release-Guide.md
+│   ├── Troubleshooting.md
+│   ├── FAQ.md
+│   └── Roadmap.md
+├── public/              # Static assets (icons, screenshots)
+├── src/                 # Source code
+│   ├── background/      # Service worker
+│   ├── browser/         # Browser API abstraction
+│   ├── cfstats/         # Codeforces statistics module
+│   ├── codeforces/      # Codeforces API client
+│   ├── content/         # Injected content scripts
+│   ├── github/          # GitHub API client
+│   ├── hooks/           # React hooks
+│   ├── shared/          # Shared utilities, types, helpers
+│   ├── statistics/      # Streak and calendar computation
+│   ├── storage/         # Settings persistence
+│   ├── sync/            # Sync engine
+│   └── ui/              # React popup application
+├── .github/             # Issue templates, community files
+├── vite.config.ts       # Vite build configuration
+├── tsconfig.json        # TypeScript configuration
+└── package.json         # Dependencies and scripts
 ```
 
-## 🔮 Future Improvements
+---
 
-- [ ] Add support for syncing submissions from other platforms (LeetCode, AtCoder, CodeChef).
-- [ ] Allow customizable commit messages.
-- [ ] Create an explicit "Sync Now" button in the popup to force an immediate refresh.
-- [ ] Implement a rich dashboard showing solving statistics and language summaries.
-- [ ] Submit to Chrome Web Store for easier access.
+## Development
 
-## 🤝 Contributing
+```bash
+# Install dependencies
+npm install
 
-Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+# Development build (watch mode)
+npm run dev
 
-> **Important Note for Developers:** Ensure you keep a Codeforces tab open while testing, as the extension relies on active tab sessions to bypass Cloudflare protection!
+# Production build
+npm run build
 
-1. Fork the Project.
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the Branch (`git push origin feature/AmazingFeature`).
+# Lint
+npm run lint
+```
+
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+VITE_OAUTH_BROKER_URL=https://<your-vercel-deployment>.vercel.app
+```
+
+See [Development](docs/Development.md) for detailed setup instructions.
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| **Code not syncing** | Ensure a Codeforces tab is open in your browser. The extension needs your active session to fetch source code. |
+| **Cloudflare blocked** | Keep `codeforces.com` actively open. The content script requires the live DOM to extract submission source. |
+| **OAuth fails** | Verify your Vercel broker is deployed and environment variables (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`) are set correctly. |
+| **Statistics not loading** | CF stats are fetched from the official Codeforces API. If the API is down, stats will not load. The extension retries on next poll cycle. |
+
+See [Troubleshooting](docs/Troubleshooting.md) for more details.
+
+---
+
+## FAQ
+
+**Q: Does this work on Firefox?**  
+A: Currently Chrome-only (MV3). Firefox support is on the roadmap.
+
+**Q: Is my GitHub token safe?**  
+A: Yes. The token is stored in `chrome.storage.local` and is only accessible to the extension. The OAuth broker is stateless and never stores your token.
+
+**Q: Can I choose which submissions get synced?**  
+A: Currently, all accepted verdicts are synced. Selective syncing is on the roadmap.
+
+**Q: What if I solve a problem without a Codeforces tab open?**  
+A: The submission won't be synced until the next poll cycle detects it. If the source cannot be fetched via your active tab, the extension falls back to the RSS feed (which does not include source code, only metadata).
+
+See [FAQ](docs/FAQ.md) for more answers.
+
+---
+
+## Limitations
+
+- **Chrome only** — Firefox/Edge support planned.
+- **Active tab required** for source code fetching — the extension relies on your Codeforces session.
+- **Accepted verdicts only** — Only "Accepted" (OK) submissions are synced. Other verdicts are ignored.
+- **100K submission limit** — Codeforces API returns a maximum of 100,000 recent submissions. Users with more may see partial statistics.
+- **No bulk backfill** — Only submissions made after installation are synced. Historical submissions are not backfilled.
+
+---
+
+## Roadmap
+
+- [ ] Firefox/Edge cross-browser support
+- [ ] Selective syncing (per-contest, per-problem)
+- [ ] "Sync Now" button for manual refresh
+- [ ] All Submissions Sync (sync all accepted submissions, not just recent)
+- [ ] Custom commit messages
+- [ ] Chrome Web Store submission
+- [ ] Support for other platforms (LeetCode, AtCoder, CodeChef)
+
+See [Roadmap](docs/Roadmap.md) for details.
+
+---
+
+## Security
+
+- GitHub tokens are stored in `chrome.storage.local` — accessible only to the extension.
+- OAuth uses PKCE (S256) with a stateless Vercel broker — the broker never sees your access token.
+- All communications are HTTPS.
+- The extension requests the minimum required permissions (`storage`, `alarms`, `identity`, `scripting`, host permissions).
+- No third-party analytics, tracking, or telemetry.
+
+See [Security](docs/Security.md) for the full security model.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Engineering Constitution](docs/ENGINEERING_CONSTITUTION.md) before starting.
+
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/amazing-feature`).
+3. Commit your changes (`git commit -m 'Add amazing feature'`).
+4. Push to the branch (`git push origin feature/amazing-feature`).
 5. Open a Pull Request.
 
-## 🚑 Troubleshooting
+---
 
-**Code is not syncing?**
-* **Cloudflare Blocking:** DevTools might say "Blocked by Cloudflare Error". Ensure you keep the actual `codeforces.com` website actively open in your browser. Without a valid tab session, Codeforces treats the background worker as a web scraper bot!
-* **Missing Handle:** Double-check that your Codeforces handle in the extension settings matches exactly with your profile.
+## License
 
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
 <div align="center">
-  <h3><b>Codeforces to GitHub Auto-Sync</b></h3>
-  <p>Made with ❤️ by <b>Nazrul</b></p>
-  
-  <a href="https://github.com/mhdnazrul">
-    <img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"/>
-  </a>
-  <a href="mailto:mhdnazrul511@gmail.com">
-    <img src="https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"/>
-  </a>
-  
-  <br>
-  <p>If you like this extension, please consider giving it a ⭐!</p>
+  <p>Made with ❤️ by <a href="https://github.com/mhdnazrul">Nazrul</a></p>
+  <p>
+    <a href="https://github.com/mhdnazrul/CodeforcesSync">GitHub</a> •
+    <a href="https://github.com/mhdnazrul/CodeforcesSync/issues">Issues</a> •
+    <a href="https://github.com/mhdnazrul/CodeforcesSync/discussions">Discussions</a>
+  </p>
 </div>

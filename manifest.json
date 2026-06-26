@@ -20,13 +20,15 @@
     "storage",
     "tabs",
     "alarms",
-    "scripting"
+    "scripting",
+    "identity"
   ],
   "host_permissions": [
     "https://api.github.com/*",
     "https://codeforces.com/*",
     "http://codeforces.com/*"
   ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq4cRGjrx+w9H4GvRafgfDXwCNyxZ2c+D/G0MQofXB2F8CPNiyEHqzCI2u7e5uqBLnfpB99ehc4X/LiPVFmGZmobbmeVmkaT1T6KXzKBTvc/H/sXDUuIfq14rCE3AD5UKcMfcPJv0B9JPGDNlbj+eIqHyzHhdTxYl4e1Q5a95uCjQm5gueNmwesnduAbboc8fSg0JxaQt/4/sfHSV+mlgltbGPsjGCLbkRv4BwrE4dIQdhemEH6312o6JfECYmplD1ysZnkXgraliv4F7ethz2Hc2VEXbp0+r/4qUk6vfCu1CpQyW0P2i+28nrmuWoLWP4ulipkdlwyZsCcXl883BzwIDAQAB",
   "background": {
     "service_worker": "src/background/background.ts"
   }

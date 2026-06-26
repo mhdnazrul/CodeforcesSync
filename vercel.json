@@ -1,0 +1,11 @@
+{
+  "buildCommand": null,
+  "functions": {
+    "api/oauth/authorize.ts": {
+      "maxDuration": 10
+    },
+    "api/oauth/callback.ts": {
+      "maxDuration": 15
+    }
+  }
+}
