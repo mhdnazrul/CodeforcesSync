@@ -1,0 +1,97 @@
+# Release pipeline for CodeforcesSync
+#
+# Triggered by pushing a tag matching v* (e.g., v2.1.0, v1.3.5).
+# Validates, builds, and packages the extension for Chrome, Edge, and Firefox,
+# then creates a GitHub Release with all three artifacts attached.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# GITHUB_TOKEN permissions needed for creating releases and generating release notes
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout the repository at the pushed tag
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install Node.js LTS and cache npm dependencies for faster subsequent runs
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      # Install dependencies from package-lock.json (exact versions)
+      - name: Install dependencies
+        run: npm ci
+
+      # Run linter before building — fail fast if code quality is broken
+      - name: Lint
+        run: npm run lint
+
+      # Build the extension for Chrome/Edge (Chromium-based browsers)
+      - name: Build Chrome
+        run: npm run build
+
+      # Strip documentation-only assets copied from public/ that are not needed at runtime
+      - name: Optimize Chrome dist
+        run: rm -rf dist/img dist/logos dist/UI
+
+      # Move the Chrome build aside so the Firefox build can use the same output directory
+      - name: Rename Chrome dist
+        run: mv dist dist-chrome
+
+      # Build the extension for Firefox (separate manifest with browser_specific_settings)
+      - name: Build Firefox
+        run: npm run build:firefox
+
+      # Strip documentation-only assets copied from public/ that are not needed at runtime
+      - name: Optimize Firefox dist
+        run: rm -rf dist/img dist/logos dist/UI
+
+      # Move the Firefox build aside for packaging
+      - name: Rename Firefox dist
+        run: mv dist dist-firefox
+
+      # Derive the SemVer version by stripping the leading "v" from the tag (v2.1.0 → 2.1.0)
+      - name: Extract version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      # Package the Chrome build into a distributable ZIP
+      - name: Package Chrome
+        run: |
+          cd dist-chrome
+          zip -r "../CodeforcesSync-Chrome-${{ env.VERSION }}.zip" .
+
+      # Edge uses the identical Chromium build — just copy the Chrome ZIP
+      - name: Package Edge (reuses Chrome build)
+        run: cp "CodeforcesSync-Chrome-${{ env.VERSION }}.zip" "CodeforcesSync-Edge-${{ env.VERSION }}.zip"
+
+      # Package the Firefox build into a distributable ZIP
+      - name: Package Firefox
+        run: |
+          cd dist-firefox
+          zip -r "../CodeforcesSync-Firefox-${{ env.VERSION }}.zip" .
+
+      # Create a GitHub Release with auto-generated release notes and upload all three ZIPs
+      - name: Create Release
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            "CodeforcesSync-Chrome-${{ env.VERSION }}.zip" \
+            "CodeforcesSync-Edge-${{ env.VERSION }}.zip" \
+            "CodeforcesSync-Firefox-${{ env.VERSION }}.zip" \
+            --generate-notes \
+            --title "CodeforcesSync ${{ github.ref_name }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
