@@ -10,127 +10,210 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ## Release Process
 
-### 1. Update Version
+### 1. Bump Version
 
-Update the version in `package.json`:
+Update `<version>` in these files to match the new release:
 
-```json
-{
-  "version": "1.0.0"
-}
-```
+| File | Field |
+|------|-------|
+| `package.json` | `"version": "<version>"` |
+| `manifest.json` | `"version": "<version>"` |
+| `manifest.firefox.json` | `"version": "<version>"` |
 
 ### 2. Update Changelog
 
 Update `CHANGELOG.md`:
 
-- Move changes from "Unreleased" to the new version section.
-- Add the release date.
-- Ensure all changes are documented.
+- Move entries from the **Unreleased** section to a new section titled with the release version and date.
+- Categorize changes: Added, Changed, Fixed, Removed.
+- Ensure all pull requests and notable changes are documented.
 
 ### 3. Commit and Tag
 
 ```bash
-git add package.json CHANGELOG.md
-git commit -m "chore: release v1.0.0"
-git tag v1.0.0
-git push origin main --tags
+git add package.json manifest.json manifest.firefox.json CHANGELOG.md
+git commit -m "chore: release v<version>"
+git tag v<version>
+git push origin <branch> --tags
 ```
 
-### 4. Build
+### 4. Automated Release
 
-```bash
-npm ci
-npm run lint
-npm run build
-```
+Pushing the tag triggers `.github/workflows/release.yml` on `ubuntu-latest`. The pipeline runs sequentially and stops on any failure:
 
-Ensure there are no lint errors and the build completes successfully.
+| Step | Command | Artifact |
+|------|---------|----------|
+| Lint | `npm run lint` | — |
+| Build Chrome | `npm run build` | `dist/` |
+| Optimize & rename | `mv dist dist-chrome` | `dist-chrome/` |
+| Build Firefox | `npm run build:firefox` | `dist/` |
+| Optimize & rename | `mv dist dist-firefox` | `dist-firefox/` |
+| Package Chrome | `zip dist-chrome` | `CodeforcesSync-Chrome-<version>.zip` |
+| Package Edge | copy Chrome ZIP | `CodeforcesSync-Edge-<version>.zip` |
+| Package Firefox | `zip dist-firefox` | `CodeforcesSync-Firefox-<version>.zip` |
+| Create Release | `gh release create` | GitHub Release with auto-generated notes + 3 ZIPs |
 
-### 5. Create Release ZIP
+The release notes are generated automatically from merged pull requests and commits since the last tag. If any step fails, the workflow stops and no release is created. Monitor the run at **Actions** → **Release** in the GitHub repository.
 
-```bash
-cd dist
-zip -r ../CodeforcesSync-v1.0.0.zip .
-```
+## Post-Release Verification
 
-### 6. Create GitHub Release
+### Release Asset Verification
 
 1. Go to the [Releases page](https://github.com/mhdnazrul/CodeforcesSync/releases).
-2. Click **Draft a new release**.
-3. Select the tag you just pushed.
-4. Title: `v1.0.0`
-5. Description:
-   - Summary of changes (can reference CHANGELOG.md).
-   - Installation instructions.
-   - Link to the full changelog.
-6. Attach the ZIP file.
-7. **Set as latest release** (if it is the latest).
-8. Publish.
+2. Confirm the new release appears with `CodeforcesSync-Chrome-<version>.zip`, `CodeforcesSync-Edge-<version>.zip`, and `CodeforcesSync-Firefox-<version>.zip`.
+3. **Chrome ZIP**: Extract and check `manifest.json` has no `browser_specific_settings` key.
+4. **Edge ZIP**: Must be byte-identical to Chrome ZIP (`sha256sum` match).
+5. **Firefox ZIP**: Extract and check `manifest.json` contains `browser_specific_settings.gecko.id`.
 
-### 7. Verify Release
+### Browser Verification
 
-1. Download the ZIP from the release.
-2. Extract it.
-3. Load it as an unpacked extension in Chrome.
-4. Run through the onboarding flow.
-5. Verify sync works.
+| Browser | Load via | Verify |
+|---------|----------|--------|
+| Chrome | `chrome://extensions` → Load unpacked | Popup renders, onboarding flow completes |
+| Edge | `edge://extensions` → Load unpacked | Same behavior as Chrome |
+| Firefox | `about:debugging#/runtime/this-firefox` → Load Temporary Add-on | Popup renders, service worker starts |
 
-## Release Notes Template
+### OAuth Verification
 
-```markdown
-## CodeforcesSync v1.0.0
+1. Open the extension popup.
+2. Click **Login with GitHub**.
+3. Complete the OAuth flow in the browser popup window.
+4. Confirm the popup navigates to the next onboarding step.
+5. Repeat in each supported browser (Chrome, Edge, Firefox).
 
-Full changelog: [CHANGELOG.md](https://github.com/mhdnazrul/CodeforcesSync/blob/main/CHANGELOG.md)
+### Repository Validation
 
-### New in This Release
+1. During onboarding or in Settings, enter a valid `owner/repo` URL.
+2. Confirm the validation spinner appears and resolves to a green checkmark.
+3. Enter an invalid URL and confirm an error message is shown.
 
-- Feature 1
-- Feature 2
-- Bug fix 1
+### Codeforces Statistics
 
-### Installation
+1. Connect a Codeforces handle during onboarding.
+2. Open the Dashboard.
+3. Confirm statistics load and display (total submissions, AC, WA, TLE, etc.).
+4. Confirm the refresh button fetches updated data.
 
-1. Download the `CodeforcesSync-v1.0.0.zip` asset below.
-2. Extract the ZIP to a folder on your computer.
-3. Open Chrome and navigate to `chrome://extensions`.
+### Sync Verification
+
+1. Solve a problem on Codeforces.
+2. Wait up to 1 minute for the background sync to run (alarm fires every 60s).
+3. Confirm the submission appears in the linked GitHub repository.
+4. Confirm the streak counter increments on the Dashboard.
+5. Verify source code extraction produces correct, readable output.
+
+### Dashboard Verification
+
+1. Confirm current streak and best streak display correctly.
+2. Confirm the weekly progress grid highlights solved days (green) and missed days (red).
+3. Confirm the Statistics Section loads Codeforces data without errors.
+4. Navigate to Settings and back — confirm state persists.
+
+### Settings Verification
+
+1. Change the repository URL and save — confirm the change persists on reload.
+2. Change the subdirectory and save — confirm the change persists.
+3. Click **Reset All** — confirm all data clears and the onboarding wizard restarts.
+
+## Rollback
+
+### Reverting a Release
+
+If a release introduces a critical bug:
+
+1. **Identify the last known-good tag**: `git tag --sort=-creatordate | head -5`
+2. **Create a fix commit** for the bug (do not rewrite history).
+3. **Cut a patch release**: follow the standard release process for `v<current-patch+1>`.
+4. **Mark the broken release as "Pre-release"** on GitHub to signal it should not be used.
+
+If you need to temporarily pull a release:
+
+1. Go to the release on GitHub.
+2. Click **Edit**.
+3. Check **Set as a pre-release** → **Update release**.
+
+Do not delete releases — users may have downloaded them and rely on checksums.
+
+### Failed GitHub Actions Recovery
+
+| Failure | Diagnosis | Recovery |
+|---------|-----------|----------|
+| Lint fails | Check linter output for errors | Fix code, commit, delete and re-tag (`git tag -d v<version>; git push origin :refs/tags/v<version>`), push tag again |
+| Build fails | Check TypeScript or Vite output | Fix build error, commit, re-tag |
+| Release created but assets missing | Check workflow logs | Delete the release, re-run the workflow (if tag exists) or re-tag |
+| Release notes are incomplete | The `--generate-notes` flag compares against the last tag | Edit the release on GitHub and add missing notes manually |
+
+To re-run a failed workflow:
+
+1. Push a new tag (e.g., `v<version>` with the fix commit) — the workflow triggers automatically.
+2. OR delete the remote tag and push it again: `git push origin :refs/tags/v<version> && git push origin v<version>`
+
+## Hotfix Release Workflow
+
+For urgent fixes that cannot wait for the next scheduled release:
+
+```bash
+# 1. Branch from the release tag
+git checkout -b hotfix/<description> v<broken-version>
+
+# 2. Apply the fix
+git cherry-pick <commit-hash>   # or fix inline
+
+# 3. Bump patch version
+#    Edit package.json, manifest.json, manifest.firefox.json
+
+# 4. Update changelog
+#    Add entry under a new version section
+
+# 5. Commit and tag
+git add -A
+git commit -m "hotfix: <description>"
+git tag v<new-patch-version>
+
+# 6. Push tag to trigger the release pipeline
+git push origin v<new-patch-version>
+
+# 7. Merge back to main
+git checkout main
+git merge hotfix/<description>
+git push origin main
+```
+
+## Post-Release QA Checklist
+
+- [ ] Release assets uploaded (3 ZIPs, correct naming)
+- [ ] Chrome ZIP manifest has no `browser_specific_settings`
+- [ ] Edge ZIP matches Chrome ZIP (same SHA-256)
+- [ ] Firefox ZIP has `browser_specific_settings.gecko.id`
+- [ ] Extension loads in Chrome without errors
+- [ ] Extension loads in Edge without errors
+- [ ] Extension loads in Firefox without errors
+- [ ] GitHub OAuth flow completes in Chrome
+- [ ] GitHub OAuth flow completes in Firefox
+- [ ] Repository validation works (valid/invalid repos)
+- [ ] Codeforces handle detection works (manual + auto-detect)
+- [ ] Codeforces statistics load on Dashboard
+- [ ] Background sync starts within 1 minute
+- [ ] Accepted submissions appear in GitHub repo
+- [ ] Streak counter increments on solved days
+- [ ] Dashboard displays correctly (streak, weekly grid, stats)
+- [ ] Settings persist across popup reopen
+- [ ] Reset All clears data and restarts onboarding
+- [ ] Release notes are accurate and complete
+
+## Installation
+
+### Chrome / Edge
+
+1. Download `CodeforcesSync-Chrome-<version>.zip`.
+2. Extract to a folder on your computer.
+3. Open `chrome://extensions` (Chrome) or `edge://extensions` (Edge).
 4. Enable **Developer mode**.
 5. Click **Load unpacked** and select the extracted folder.
 
-### Checksums
+### Firefox
 
-| File | SHA-256 |
-|------|---------|
-| `CodeforcesSync-v1.0.0.zip` | `abc123...` |
-```
-
-## Automated Releases
-
-The project includes a GitHub Actions workflow (`.github/release.yml`) that:
-
-1. Triggers on tags matching `v*.*.*`.
-2. Runs `npm ci`, `npm run build`, `npm run lint`.
-3. Zips the `dist/` directory.
-4. Creates a GitHub Release with the ZIP attached.
-5. Generates release notes automatically.
-
-To use automated releases, push a semver tag:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-## Pre-Release Checklist
-
-- [ ] All changes committed and pushed.
-- [ ] Changelog updated with all changes.
-- [ ] Version bumped in `package.json`.
-- [ ] `npm run lint` passes.
-- [ ] `npm run build` produces clean output.
-- [ ] Extension loads in Chrome without errors.
-- [ ] OAuth flow works end-to-end.
-- [ ] Sync cycle runs on schedule.
-- [ ] Dashboard displays correctly.
-- [ ] Settings save and load correctly.
-- [ ] Reset All clears data correctly.
+1. Download `CodeforcesSync-Firefox-<version>.zip`.
+2. Extract to a folder on your computer.
+3. Open `about:debugging#/runtime/this-firefox`.
+4. Click **Load Temporary Add-on** and select the `manifest.json` inside the extracted folder.
