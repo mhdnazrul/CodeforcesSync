@@ -18,7 +18,7 @@ Fixes #(issue)
 - [ ] Build passes (`npm run build`)
 - [ ] I have read the [CONTRIBUTING](../CONTRIBUTING.md) guide.
 - [ ] I have updated the documentation if needed.
-- [ ] I have updated the [CHANGELOG](../CHANGELOG.md) if needed.
+- [ ] I have updated the [CHANGELOG](../docs/CHANGELOG.md) if needed.
 
 ## Testing
 

@@ -8,7 +8,7 @@ This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.
 
 ## Development Philosophy
 
-Read the [Engineering Constitution](ENGINEERING_CONSTITUTION.md) before starting. Key principles:
+Read the [Engineering Constitution](docs/ENGINEERING_CONSTITUTION.md) before starting. Key principles:
 
 - **Never break production** — Preserve existing sync, upload, streak, and detection behavior.
 - **Small incremental changes** — One commit does one thing.
@@ -77,7 +77,7 @@ npm run build:firefox # TypeScript check + Firefox production build
 - All `chrome.*` calls should go through `BrowserAdapter` interfaces.
 - No cross-domain imports between `github/` and `codeforces/`.
 
-See [Architecture](Architecture.md) and the [Engineering Constitution](ENGINEERING_CONSTITUTION.md) for complete rules.
+See [Architecture](docs/Architecture.md) and the [Engineering Constitution](docs/ENGINEERING_CONSTITUTION.md) for complete rules.
 
 ## Pull Request Process
 
@@ -102,4 +102,4 @@ There is no test suite currently. When contributing:
 
 ## Questions?
 
-Open a [discussion](https://github.com/mhdnazrul/CodeforcesSync/discussions) or check [SUPPORT.md](SUPPORT.md).
+Open a [discussion](https://github.com/mhdnazrul/CodeforcesSync/discussions) or check [SUPPORT.md](docs/SUPPORT.md).

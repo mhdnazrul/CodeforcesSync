@@ -150,6 +150,7 @@ jobs:
         run: |
           RELEASE_DATE=$(date -u +"%Y-%m-%d")
           echo "RELEASE_DATE=$RELEASE_DATE" >> "$GITHUB_ENV"
+          export RELEASE_DATE
 
           gh api \
             repos/${{ github.repository }}/releases/generate-notes \
