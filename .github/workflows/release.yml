@@ -115,6 +115,8 @@ jobs:
 
       - name: Build Chrome / Edge
         run: npm run build
+        env:
+          VITE_OAUTH_BROKER_URL: ${{ secrets.VITE_OAUTH_BROKER_URL }}
 
       - name: Strip design-time assets from Chrome build
         run: rm -rf dist/img dist/logos dist/UI
@@ -124,6 +126,8 @@ jobs:
 
       - name: Build Firefox
         run: npm run build:firefox
+        env:
+          VITE_OAUTH_BROKER_URL: ${{ secrets.VITE_OAUTH_BROKER_URL }}
 
       - name: Strip design-time assets from Firefox build
         run: rm -rf dist/img dist/logos dist/UI
