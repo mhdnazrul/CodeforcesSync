@@ -1,91 +1,126 @@
 # Release pipeline for CodeforcesSync
 #
-# Triggered by pushing a tag matching v* (e.g., v2.1.0, v1.3.5).
-# Validates, builds, and packages the extension for Chrome, Edge, and Firefox,
-# then creates a GitHub Release with all three artifacts attached.
+# Builds, packages, and publishes the extension for Chrome, Edge, and Firefox
+# whenever a semantic version tag (e.g., v2.1.0) is pushed.
+#
+# Triggers
+# ─────────
+#   push/tags/v[0-9]*.*.*   — any tag matching v<major>.<minor>.<patch>
+#                              Prevents accidental releases from non-semver tags.
+#
+# Permissions
+# ─────────────
+#   contents: write          — create the GitHub Release and upload ZIP assets
+#   pull-requests: read      — required by gh release --generate-notes to read
+#                              merged PR titles for auto-generated release notes
+#
+# Jobs
+# ─────
+#   release (single job)     — lint → build (Chrome) → build (Firefox) →
+#                              package 3 ZIPs → create GitHub Release
+#                              Single-job design avoids cross-job artifact
+#                              upload/download overhead and is simpler to
+#                              troubleshoot on GitHub Free.
 
 name: Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'v[0-9]*.*.*'
 
-# GITHUB_TOKEN permissions needed for creating releases and generating release notes
 permissions:
   contents: write
   pull-requests: read
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   release:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository at the pushed tag
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Install Node.js LTS and cache npm dependencies for faster subsequent runs
-      - name: Setup Node.js
+      - name: Setup Node.js LTS
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
           cache: 'npm'
 
-      # Install dependencies from package-lock.json (exact versions)
       - name: Install dependencies
         run: npm ci
 
-      # Run linter before building — fail fast if code quality is broken
       - name: Lint
         run: npm run lint
 
-      # Build the extension for Chrome/Edge (Chromium-based browsers)
-      - name: Build Chrome
+      - name: Extract version from tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Write release version to source files
+        run: |
+          node -e "
+            const fs = require('fs');
+            const ver = process.env.VERSION;
+            ['package.json', 'manifest.json', 'manifest.firefox.json'].forEach(f => {
+              const p = JSON.parse(fs.readFileSync(f, 'utf8'));
+              p.version = ver;
+              fs.writeFileSync(f, JSON.stringify(p, null, 2) + '\n');
+              console.log(f + ' -> ' + ver);
+            });
+          "
+
+      - name: Verify version consistency
+        run: |
+          PKG_VER=$(node -e "console.log(require('./package.json').version)")
+          MAN_VER=$(node -e "console.log(require('./manifest.json').version)")
+          FF_VER=$(node -e "console.log(require('./manifest.firefox.json').version)")
+          echo "package.json:         $PKG_VER"
+          echo "manifest.json:        $MAN_VER"
+          echo "manifest.firefox.json: $FF_VER"
+          echo "Git tag:              ${{ env.VERSION }}"
+          [[ "$PKG_VER" == "${{ env.VERSION }}" ]] || { echo "FAIL: package.json version mismatch"; exit 1; }
+          [[ "$MAN_VER" == "${{ env.VERSION }}" ]] || { echo "FAIL: manifest.json version mismatch"; exit 1; }
+          [[ "$FF_VER" == "${{ env.VERSION }}" ]] || { echo "FAIL: manifest.firefox.json version mismatch"; exit 1; }
+          echo "✓ All versions match: ${{ env.VERSION }}"
+
+      - name: Build Chrome / Edge
         run: npm run build
 
-      # Strip documentation-only assets copied from public/ that are not needed at runtime
-      - name: Optimize Chrome dist
+      - name: Strip design-time assets from Chrome build
         run: rm -rf dist/img dist/logos dist/UI
 
-      # Move the Chrome build aside so the Firefox build can use the same output directory
-      - name: Rename Chrome dist
+      - name: Rename Chrome build directory
         run: mv dist dist-chrome
 
-      # Build the extension for Firefox (separate manifest with browser_specific_settings)
       - name: Build Firefox
         run: npm run build:firefox
 
-      # Strip documentation-only assets copied from public/ that are not needed at runtime
-      - name: Optimize Firefox dist
+      - name: Strip design-time assets from Firefox build
         run: rm -rf dist/img dist/logos dist/UI
 
-      # Move the Firefox build aside for packaging
-      - name: Rename Firefox dist
+      - name: Rename Firefox build directory
         run: mv dist dist-firefox
 
-      # Derive the SemVer version by stripping the leading "v" from the tag (v2.1.0 → 2.1.0)
-      - name: Extract version
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-
-      # Package the Chrome build into a distributable ZIP
       - name: Package Chrome
-        run: |
-          cd dist-chrome
-          zip -r "../CodeforcesSync-Chrome-${{ env.VERSION }}.zip" .
+        run: cd dist-chrome && zip -r "../CodeforcesSync-Chrome-${{ env.VERSION }}.zip" .
 
-      # Edge uses the identical Chromium build — just copy the Chrome ZIP
       - name: Package Edge (reuses Chrome build)
         run: cp "CodeforcesSync-Chrome-${{ env.VERSION }}.zip" "CodeforcesSync-Edge-${{ env.VERSION }}.zip"
 
-      # Package the Firefox build into a distributable ZIP
       - name: Package Firefox
-        run: |
-          cd dist-firefox
-          zip -r "../CodeforcesSync-Firefox-${{ env.VERSION }}.zip" .
+        run: cd dist-firefox && zip -r "../CodeforcesSync-Firefox-${{ env.VERSION }}.zip" .
 
-      # Create a GitHub Release with auto-generated release notes and upload all three ZIPs
-      - name: Create Release
+      - name: Verify release artifacts
+        run: |
+          ls -lh "CodeforcesSync-Chrome-${{ env.VERSION }}.zip"
+          ls -lh "CodeforcesSync-Edge-${{ env.VERSION }}.zip"
+          ls -lh "CodeforcesSync-Firefox-${{ env.VERSION }}.zip"
+
+      - name: Create GitHub Release
         run: |
           gh release create "${{ github.ref_name }}" \
             "CodeforcesSync-Chrome-${{ env.VERSION }}.zip" \

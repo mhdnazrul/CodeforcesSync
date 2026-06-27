@@ -1,6 +1,6 @@
 {
   "name": "CodeforcesSync",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "description": "Automatically syncs your accepted Codeforces submissions to a GitHub repository and tracks your daily solving streak.",
   "manifest_version": 3,
   "browser_specific_settings": {
