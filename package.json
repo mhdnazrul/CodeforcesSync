@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite build --emptyOutDir --watch",
     "build": "tsc -b && vite build --emptyOutDir",
+    "build:firefox": "tsc -b && vite build --emptyOutDir --config vite.config.firefox.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },
