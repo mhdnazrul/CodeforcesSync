@@ -53,7 +53,7 @@ The extension runs entirely in the background — no manual copying, no manual c
 
 ### Prerequisites
 
-- **Google Chrome** version **102+** (required for `chrome.storage.session` API)
+- **Google Chrome** (102+, required for `chrome.storage.session`) or **Mozilla Firefox** (128+, required for `storage.session` in Firefox) or **Microsoft Edge** (Chromium-based)
 - **A GitHub account** with a repository to store solutions
 - **A Codeforces account** (the handle you solve problems under)
 
@@ -280,7 +280,7 @@ See [Troubleshooting](docs/Troubleshooting.md) for more details.
 ## FAQ
 
 **Q: Does this work on Firefox?**  
-A: Currently Chrome-only (MV3). Firefox support is on the roadmap.
+A: Yes. Firefox is fully supported (version 128+).
 
 **Q: Is my GitHub token safe?**  
 A: Yes. The token is stored in `chrome.storage.local` and is only accessible to the extension. The OAuth broker is stateless and never stores your token.
@@ -297,7 +297,6 @@ See [FAQ](docs/FAQ.md) for more answers.
 
 ## Limitations
 
-- **Chrome only** — Firefox/Edge support planned.
 - **Active tab required** for source code fetching — the extension relies on your Codeforces session.
 - **Accepted verdicts only** — Only "Accepted" (OK) submissions are synced. Other verdicts are ignored.
 - **100K submission limit** — Codeforces API returns a maximum of 100,000 recent submissions. Users with more may see partial statistics.
@@ -307,12 +306,11 @@ See [FAQ](docs/FAQ.md) for more answers.
 
 ## Roadmap
 
-- [ ] Firefox/Edge cross-browser support
 - [ ] Selective syncing (per-contest, per-problem)
 - [ ] "Sync Now" button for manual refresh
 - [ ] All Submissions Sync (sync all accepted submissions, not just recent)
 - [ ] Custom commit messages
-- [ ] Chrome Web Store submission
+- [ ] Chrome Web Store and Firefox Add-ons (AMO) submission
 - [ ] Support for other platforms (LeetCode, AtCoder, CodeChef)
 
 See [Roadmap](docs/Roadmap.md) for details.

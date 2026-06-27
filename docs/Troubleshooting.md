@@ -43,7 +43,7 @@
 | Wrong broker URL | Check `.env` contains `VITE_OAUTH_BROKER_URL` pointing to your Vercel deployment. |
 | Missing environment variables | Ensure `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are set in Vercel. |
 | Wrong callback URL | Verify the GitHub OAuth App's callback URL matches `https://<vercel-deployment>.vercel.app/api/oauth/callback`. |
-| Chrome version < 102 | `chrome.storage.session` is required for OAuth and is only available in Chrome 102+. |
+| Browser version too old | `chrome.storage.session` / `storage.session` requires Chrome/Edge 102+ or Firefox 128+. |
 
 ### Statistics Not Loading
 

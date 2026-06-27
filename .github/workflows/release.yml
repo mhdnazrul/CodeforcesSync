@@ -1,12 +1,24 @@
 # Release pipeline for CodeforcesSync
 #
 # Builds, packages, and publishes the extension for Chrome, Edge, and Firefox
-# whenever a semantic version tag (e.g., v2.1.0) is pushed.
+# whenever a stable semver tag v<major>.<minor>.<patch> is pushed.
 #
 # Triggers
 # ─────────
-#   push/tags/v[0-9]*.*.*   — any tag matching v<major>.<minor>.<patch>
-#                              Prevents accidental releases from non-semver tags.
+#   push/tags/v[0-9]*.*.*   — glob-level guard: tag must start with 'v', contain
+#                              a digit, and have three dot-separated components.
+#                              Prevents blatantly malformed tags (vfoo, v1, v1.0)
+#                              from triggering the workflow at all.
+#
+#   Validation step below    — regex-level guard: enforces strict semver before
+#                              any build work. Rejects pre-release suffixes
+#                              (v1.0.0-beta), non-numeric components (v1a.0.0),
+#                              and extra segments (v1.0.0.0).
+#
+#   The two-layer design is required because GitHub Actions glob syntax cannot
+#   express "one or more digits only" for each version component. The glob
+#   silently drops unwanted triggers; the regex fails the build with a clear
+#   message for the remaining edge cases.
 #
 # Permissions
 # ─────────────
@@ -16,8 +28,8 @@
 #
 # Jobs
 # ─────
-#   release (single job)     — lint → build (Chrome) → build (Firefox) →
-#                              package 3 ZIPs → create GitHub Release
+#   release (single job)     — validate → lint → build (Chrome) → build (Firefox)
+#                              → package 3 ZIPs → create GitHub Release
 #                              Single-job design avoids cross-job artifact
 #                              upload/download overhead and is simpler to
 #                              troubleshoot on GitHub Free.
@@ -44,6 +56,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Validate strict semver tag
+        run: |
+          node -e "
+            const tag = process.env.GITHUB_REF_NAME;
+            if (!/^v\d+\.\d+\.\d+$/.test(tag)) {
+              console.error('FAIL: tag \"' + tag + '\" is not a stable semver tag (vX.Y.Z)');
+              console.error('      Pre-release suffixes, non-numeric components,');
+              console.error('      and extra segments are not allowed.');
+              process.exit(1);
+            }
+            const ver = tag.slice(1);
+            console.log('✓ Tag \"' + tag + '\" validated — version ' + ver);
+          "
 
       - name: Setup Node.js LTS
         uses: actions/setup-node@v4

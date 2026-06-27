@@ -8,7 +8,7 @@ CodeforcesSync is a Chrome extension that automatically detects when you get an 
 
 ### Does this work on Firefox?
 
-Currently, the extension is Chrome-only (Manifest V3). Firefox support is on the [Roadmap](Roadmap.md).
+Yes. Firefox is fully supported (version 128+). See the [Release Guide](Release-Guide.md) for Firefox installation instructions.
 
 ### Is this free?
 
@@ -20,17 +20,18 @@ Yes. You need a GitHub account with a repository to store your solutions. You al
 
 ## Installation
 
-### What Chrome version do I need?
+### What browser version do I need?
 
-Chrome 102 or later. The extension uses `chrome.storage.session`, which was introduced in Chrome 102 (May 2022).
+- **Chrome / Edge:** version 102 or later. The extension uses `chrome.storage.session`, introduced in Chrome 102 (May 2022).
+- **Firefox:** version 128 or later. `storage.session` is available since Firefox 128.
 
 ### How do I install the extension?
 
 Download the latest release ZIP from the [Releases page](https://github.com/mhdnazrul/CodeforcesSync/releases), extract it, and load it as an unpacked extension in Chrome (`chrome://extensions` → Developer mode → Load unpacked).
 
-### Is it available on the Chrome Web Store?
+### Is it available on the Chrome Web Store or Firefox Add-ons (AMO)?
 
-Not yet. See the [Roadmap](Roadmap.md) for Web Store submission plans.
+Not yet. The extension is distributed via GitHub Releases. See the [Roadmap](Roadmap.md) for store submission plans.
 
 ## Security
 
@@ -91,7 +92,7 @@ The submission will not be synced until a Codeforces tab is available. The exten
 - Verify your Vercel broker is deployed.
 - Check that `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are set.
 - Verify the OAuth callback URL matches your Vercel deployment.
-- Make sure you're on Chrome 102+.
+- Make sure you're on Chrome 102+, Edge 102+, or Firefox 128+.
 
 ### The dashboard shows "Failed to fetch statistics."
 

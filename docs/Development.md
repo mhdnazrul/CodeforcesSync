@@ -4,7 +4,7 @@
 
 - Node.js 18+
 - npm 9+
-- Google Chrome 102+
+- Google Chrome 102+ / Microsoft Edge 102+ / Mozilla Firefox 128+
 
 ## Setup
 
@@ -20,11 +20,10 @@ npm install
 npm run build
 ```
 
-Load `dist/` as an unpacked extension in Chrome:
-1. Open `chrome://extensions`.
-2. Enable **Developer mode** (top-right toggle).
-3. Click **Load unpacked**.
-4. Select the `dist/` folder.
+Load `dist/` as an unpacked extension:
+- **Chrome:** `chrome://extensions` → Developer mode → Load unpacked
+- **Edge:** `edge://extensions` → Developer mode → Load unpacked
+- **Firefox:** Build with `npm run build:firefox`, then open `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → select `dist/manifest.json`
 
 ## Development Builds
 
@@ -34,15 +33,16 @@ Load `dist/` as an unpacked extension in Chrome:
 npm run dev
 ```
 
-This runs `vite build --watch`, which rebuilds on file changes. After each rebuild, reload the extension in `chrome://extensions`.
+This runs `vite build --watch`, which rebuilds on file changes. After each rebuild, reload the extension in your browser's extension manager.
 
-### Production Build
+### Production Builds
 
 ```bash
-npm run build
+npm run build          # Chrome / Edge
+npm run build:firefox  # Firefox
 ```
 
-This runs `tsc -b` (TypeScript type checking) followed by `vite build` (production bundle).
+These run `tsc -b` (TypeScript type checking) followed by `vite build` (production bundle) with the appropriate manifest.
 
 ## Linting
 
@@ -57,7 +57,8 @@ The project uses ESLint with TypeScript rules. The lint configuration is in `esl
 | Script | Command | Description |
 |--------|---------|-------------|
 | `dev` | `vite build --emptyOutDir --watch` | Development build with watch mode |
-| `build` | `tsc -b && vite build --emptyOutDir` | Production build |
+| `build` | `tsc -b && vite build --emptyOutDir` | Chrome/Edge production build |
+| `build:firefox` | `tsc -b && vite build --emptyOutDir --config vite.config.firefox.ts` | Firefox production build |
 | `lint` | `eslint .` | Run ESLint on all files |
 | `preview` | `vite preview` | Preview the production build |
 

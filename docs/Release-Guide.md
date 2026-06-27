@@ -10,17 +10,7 @@ This project follows [Semantic Versioning](https://semver.org/):
 
 ## Release Process
 
-### 1. Bump Version
-
-Update `<version>` in these files to match the new release:
-
-| File | Field |
-|------|-------|
-| `package.json` | `"version": "<version>"` |
-| `manifest.json` | `"version": "<version>"` |
-| `manifest.firefox.json` | `"version": "<version>"` |
-
-### 2. Update Changelog
+### 1. Update Changelog
 
 Update `CHANGELOG.md`:
 
@@ -28,16 +18,18 @@ Update `CHANGELOG.md`:
 - Categorize changes: Added, Changed, Fixed, Removed.
 - Ensure all pull requests and notable changes are documented.
 
-### 3. Commit and Tag
+### 2. Commit and Tag
 
 ```bash
-git add package.json manifest.json manifest.firefox.json CHANGELOG.md
+git add CHANGELOG.md
 git commit -m "chore: release v<version>"
 git tag v<version>
 git push origin <branch> --tags
 ```
 
-### 4. Automated Release
+Pushing the tag triggers `.github/workflows/release.yml` which extracts the version from the tag and injects it into `package.json`, `manifest.json`, and `manifest.firefox.json` at build time. You do not need to edit version files manually.
+
+### 3. Automated Release
 
 Pushing the tag triggers `.github/workflows/release.yml` on `ubuntu-latest`. The pipeline runs sequentially and stops on any failure:
 
@@ -160,7 +152,7 @@ git checkout -b hotfix/<description> v<broken-version>
 git cherry-pick <commit-hash>   # or fix inline
 
 # 3. Bump patch version
-#    Edit package.json, manifest.json, manifest.firefox.json
+#    (The CI injects the version from the tag — just update CHANGELOG.md)
 
 # 4. Update changelog
 #    Add entry under a new version section

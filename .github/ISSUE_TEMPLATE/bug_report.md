@@ -30,13 +30,16 @@ If applicable, add screenshots to help explain the issue.
 
 ## Environment
 
-- Chrome version: [e.g. 125]
+- Browser: Chrome / Edge / Firefox (circle one)
+- Browser version: [e.g. 125 / 128]
 - CodeforcesSync version: [e.g. 0.0.0]
 - OS: [e.g. Windows 11, macOS 14]
 
 ## Extension Logs
 
-Open `chrome://extensions` → service worker → Inspect, then copy any relevant console output:
+Open the extension's service worker console:
+- **Chrome/Edge:** `chrome://extensions` → service worker → Inspect
+- **Firefox:** `about:debugging#/runtime/this-firefox` → Inspect
 
 ```
 Paste logs here

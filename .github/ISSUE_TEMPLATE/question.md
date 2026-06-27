@@ -17,6 +17,7 @@ What are you trying to achieve? What have you already tried?
 
 ## Environment (if applicable)
 
-- Chrome version:
+- Browser: Chrome / Edge / Firefox
+- Browser version:
 - CodeforcesSync version:
 - OS:

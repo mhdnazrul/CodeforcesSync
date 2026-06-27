@@ -2,8 +2,8 @@
 
 ## Platform Requirements
 
-- **Browser:** Google Chrome (Manifest V3 only)
-- **Minimum Chrome version:** 102 (required for `chrome.storage.session` API support, May 2022)
+- **Browsers:** Google Chrome (102+), Microsoft Edge (102+), Mozilla Firefox (128+)
+- **Minimum version:** Chrome/Edge 102 (required for `chrome.storage.session` API support, May 2022); Firefox 128 (`storage.session` available since 128)
 - **GitHub OAuth App:** Required for user authentication (see Section 1)
 - **Distribution:** Pre-built ZIP files via GitHub Releases (recommended for end users)
 

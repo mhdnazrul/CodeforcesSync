@@ -61,7 +61,7 @@ The extension requests only the permissions it actively uses:
 ## Known Security Considerations
 
 - **Active tab requirement** — The extension needs an open Codeforces tab to fetch source code. This is a functional requirement, not a security issue.
-- **chrome.storage.session** — Requires Chrome 102+. The extension will fail to start OAuth on older versions.
+- **chrome.storage.session / storage.session** — Requires Chrome/Edge 102+ or Firefox 128+. The extension will fail to start OAuth on older versions.
 - **No sandboxing** — The content script runs in the Codeforces page context and has access to the DOM.
 
 ## Third-Party Dependencies

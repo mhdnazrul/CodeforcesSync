@@ -21,7 +21,7 @@ Read the [Engineering Constitution](docs/ENGINEERING_CONSTITUTION.md) before sta
 
 - Node.js 18+
 - npm 9+
-- Google Chrome 102+
+- Google Chrome 102+ / Microsoft Edge 102+ / Mozilla Firefox 128+
 
 ### Setup
 
@@ -29,10 +29,14 @@ Read the [Engineering Constitution](docs/ENGINEERING_CONSTITUTION.md) before sta
 git clone https://github.com/mhdnazrul/CodeforcesSync.git
 cd CodeforcesSync
 npm install
-npm run build
+npm run build           # Chrome / Edge
+npm run build:firefox   # Firefox
 ```
 
-Load `dist/` as an unpacked extension in Chrome (`chrome://extensions` → Developer mode → Load unpacked).
+Load `dist/` as an unpacked extension:
+- **Chrome:** `chrome://extensions` → Developer mode → Load unpacked
+- **Edge:** `edge://extensions` → Developer mode → Load unpacked
+- **Firefox:** `about:debugging#/runtime/this-firefox` → Load Temporary Add-on → select `dist/manifest.json`
 
 ## Development Workflow
 
@@ -61,8 +65,9 @@ docs: update deployment guide with Vercel instructions
 Always run these before opening a pull request:
 
 ```bash
-npm run lint    # ESLint
-npm run build   # TypeScript check + production build
+npm run lint          # ESLint
+npm run build         # TypeScript check + Chrome/Edge production build
+npm run build:firefox # TypeScript check + Firefox production build
 ```
 
 ### Architecture Rules
