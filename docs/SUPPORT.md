@@ -8,9 +8,9 @@ If you need help with CodeforcesSync, here are the best ways to get it:
 
 Start with the documentation in the `docs/` directory:
 
-- [Troubleshooting](docs/Troubleshooting.md) — Common issues and solutions.
-- [FAQ](docs/FAQ.md) — Frequently asked questions.
-- [Deployment](docs/Deployment.md) — Setting up the OAuth broker.
+- [Troubleshooting](Troubleshooting.md) — Common issues and solutions.
+- [FAQ](FAQ.md) — Frequently asked questions.
+- [Deployment](Deployment.md) — Setting up the OAuth broker.
 
 ### GitHub Issues
 

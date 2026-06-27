@@ -222,7 +222,6 @@ CodeforcesSync/
 │   ├── codeforces/      # Codeforces API client
 │   ├── content/         # Injected content scripts
 │   ├── github/          # GitHub API client
-│   ├── hooks/           # React hooks
 │   ├── shared/          # Shared utilities, types, helpers
 │   ├── statistics/      # Streak and calendar computation
 │   ├── storage/         # Settings persistence

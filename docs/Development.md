@@ -72,7 +72,6 @@ src/
 ├── codeforces/       # Codeforces API client
 ├── content/          # Content scripts injected into CF pages
 ├── github/           # GitHub REST API client
-├── hooks/            # React custom hooks
 ├── shared/           # Shared utilities, types, formatters
 ├── statistics/       # Streak and calendar computation
 ├── storage/          # Settings persistence
@@ -101,7 +100,7 @@ src/
 
 | File | Purpose |
 |------|---------|
-| `public/manifest.json` | Chrome Extension manifest for CRXJS (auto-generated) |
+| `manifest.json` | Chrome Extension manifest |
 | `src/background/background.ts` | Service worker entry point |
 | `src/main.tsx` | React entry point |
 | `src/App.tsx` | Root React component |
