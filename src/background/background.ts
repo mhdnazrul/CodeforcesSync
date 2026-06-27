@@ -1,3 +1,4 @@
+import { browserApi } from "../platform/browser";
 import { ChromeStorageService, ChromeTabsService, ChromeScriptingService, ChromeRuntimeService, ChromeAlarmsService } from "../browser/chrome/adapter";
 import { createStore } from "../storage";
 import { createRetryEngine } from "../sync";
@@ -66,8 +67,8 @@ function randomHex(len: number): string {
 
 async function handleOAuthFlow(): Promise<void> {
   console.log("CodeforcesSync: [OAuth] Entering handleOAuthFlow");
-  console.log("CodeforcesSync: [OAuth] chrome.identity available:", typeof chrome.identity !== "undefined");
-  console.log("CodeforcesSync: [OAuth] chrome.identity.getRedirectURL available:", typeof chrome.identity?.getRedirectURL === "function");
+  console.log("CodeforcesSync: [OAuth] browserApi.identity available:", typeof browserApi.identity !== "undefined");
+  console.log("CodeforcesSync: [OAuth] browserApi.identity.getRedirectURL available:", typeof browserApi.identity?.getRedirectURL === "function");
 
   console.log("CodeforcesSync: [OAuth] Generating PKCE code verifier...");
   const codeVerifier = base64url(crypto.getRandomValues(new Uint8Array(64)));
@@ -82,8 +83,8 @@ async function handleOAuthFlow(): Promise<void> {
   const state = randomHex(16);
   console.log("CodeforcesSync: [OAuth] state:", state);
 
-  console.log("CodeforcesSync: [OAuth] Storing oauthVerifier and oauthState in chrome.storage.session...");
-  await chrome.storage.session.set({ oauthVerifier: codeVerifier, oauthState: state });
+  console.log("CodeforcesSync: [OAuth] Storing oauthVerifier and oauthState in browserApi.storage.session...");
+  await browserApi.storage.session.set({ oauthVerifier: codeVerifier, oauthState: state });
   console.log("CodeforcesSync: [OAuth] session storage written successfully");
 
   console.log("CodeforcesSync: [OAuth] Reading VITE_OAUTH_BROKER_URL env var...");
@@ -91,8 +92,8 @@ async function handleOAuthFlow(): Promise<void> {
   console.log("CodeforcesSync: [OAuth] VITE_OAUTH_BROKER_URL =", brokerUrl ?? "(undefined)");
   if (!brokerUrl) throw new Error("VITE_OAUTH_BROKER_URL is not configured");
 
-  console.log("CodeforcesSync: [OAuth] Calling chrome.identity.getRedirectURL...");
-  const redirectUri = chrome.identity.getRedirectURL("oauth-callback");
+  console.log("CodeforcesSync: [OAuth] Calling browserApi.identity.getRedirectURL...");
+  const redirectUri = browserApi.identity.getRedirectURL("oauth-callback");
   console.log("CodeforcesSync: [OAuth] redirectUri:", redirectUri);
 
   const authUrl =
@@ -104,9 +105,9 @@ async function handleOAuthFlow(): Promise<void> {
     `&code_verifier=${encodeURIComponent(codeVerifier)}`;
 
   console.log("CodeforcesSync: [OAuth] Constructed authUrl:", authUrl.slice(0, 120) + "...");
-  console.log("CodeforcesSync: [OAuth] Calling chrome.identity.launchWebAuthFlow...");
+  console.log("CodeforcesSync: [OAuth] Calling browserApi.identity.launchWebAuthFlow...");
 
-  const responseUrl = await chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true });
+  const responseUrl = await browserApi.identity.launchWebAuthFlow({ url: authUrl, interactive: true });
   console.log("CodeforcesSync: [OAuth] launchWebAuthFlow returned:", responseUrl ? "URL (" + responseUrl.length + " chars)" : "null/undefined");
   if (!responseUrl) throw new Error("OAuth flow returned no response URL");
 
@@ -125,7 +126,7 @@ async function handleOAuthFlow(): Promise<void> {
   if (!returnedToken) throw new Error("No access token returned from OAuth broker");
 
   console.log("CodeforcesSync: [OAuth] Verifying CSRF state...");
-  const stored = await chrome.storage.session.get(["oauthState"]);
+  const stored = await browserApi.storage.session.get(["oauthState"]);
   console.log("CodeforcesSync: [OAuth] stored.oauthState:", stored.oauthState, "| returnedState:", returnedState);
   if (returnedState !== stored.oauthState) throw new Error("OAuth state mismatch — possible CSRF");
 
@@ -133,14 +134,14 @@ async function handleOAuthFlow(): Promise<void> {
   await credentialStore.saveToken(returnedToken, username);
 
   console.log("CodeforcesSync: [OAuth] Cleaning up session storage...");
-  await chrome.storage.session.remove(["oauthVerifier", "oauthState"]);
+  await browserApi.storage.session.remove(["oauthVerifier", "oauthState"]);
 
   console.log("CodeforcesSync: [OAuth] Broadcasting OAUTH_COMPLETE...");
-  chrome.runtime.sendMessage({ type: "OAUTH_COMPLETE", success: true }).catch(() => {});
+  browserApi.runtime.sendMessage({ type: "OAUTH_COMPLETE", success: true }).catch(() => {});
   console.log("CodeforcesSync: [OAuth] handleOAuthFlow completed successfully");
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+browserApi.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "OAUTH_START") {
     console.log("CodeforcesSync: [OAuth] OAUTH_START message received");
     handleOAuthFlow()

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { browserApi } from "../../platform/browser";
 import Button from "../components/Button";
 import Stepper from "../components/Stepper";
 import Input from "../components/Input";
@@ -41,7 +42,7 @@ export default function CodeforcesAuthScreen({ onNext, onBack }: Props) {
     setDetecting(true);
     setError("");
     try {
-      const tabs = await chrome.tabs.query({ url: "*://codeforces.com/*" });
+      const tabs = await browserApi.tabs.query({ url: "*://codeforces.com/*" });
       if (!tabs.length) {
         throw new Error("Open codeforces.com in any tab first");
       }
@@ -55,7 +56,7 @@ export default function CodeforcesAuthScreen({ onNext, onBack }: Props) {
         return;
       }
 
-      const results = await chrome.scripting.executeScript({
+      const results = await browserApi.scripting.executeScript({
         target: { tabId: tab.id },
         func: () => {
           const el = document.querySelector('a[href^="/profile/"]') as HTMLElement | null;

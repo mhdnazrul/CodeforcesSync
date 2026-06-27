@@ -1,4 +1,5 @@
 import React from "react";
+import { browserApi } from "../../platform/browser";
 import Button from "./Button";
 import Logo from "../../assets/logo.png"
 
@@ -12,12 +13,12 @@ interface HeaderProps {
 export default function Header({ activeTab, onTabChange, cfHandle, ghRepoPath }: HeaderProps) {
   const handleRepoClick = () => {
     if (!ghRepoPath || !ghRepoPath.trim()) return;
-    chrome.tabs.create({ url: `https://github.com/${ghRepoPath}` });
+    browserApi.tabs.create({ url: `https://github.com/${ghRepoPath}` });
   };
 
   const handleCfClick = () => {
     if (!cfHandle || !cfHandle.trim()) return;
-    chrome.tabs.create({ url: `https://codeforces.com/profile/${encodeURIComponent(cfHandle)}` });
+    browserApi.tabs.create({ url: `https://codeforces.com/profile/${encodeURIComponent(cfHandle)}` });
   };
 
   return (

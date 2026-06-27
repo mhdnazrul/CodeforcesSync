@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { browserApi } from "../../platform/browser";
 import { ChromeStorageService } from "../../browser/chrome/adapter";
 import { createStore, defaultSettings } from "../../storage";
 import { getWeeklyProgress } from "../../statistics";
@@ -76,12 +77,12 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
         });
       }
     };
-    chrome.runtime.onMessage.addListener(listener);
-    return () => chrome.runtime.onMessage.removeListener(listener);
+    browserApi.runtime.onMessage.addListener(listener);
+    return () => browserApi.runtime.onMessage.removeListener(listener);
   }, []);
 
   const connectGitHub = async () => {
-    const response = await chrome.runtime.sendMessage({ type: "OAUTH_START" });
+    const response = await browserApi.runtime.sendMessage({ type: "OAUTH_START" });
     if (!response || response.error) throw new Error(response?.error || "OAuth failed");
     const s = await store.getSettings();
     setSettings(s);
@@ -129,7 +130,7 @@ export function ApiProvider({ children }: { children: React.ReactNode }) {
     setCfStatsLoading(true);
     setCfStatsError(null);
     try {
-      const response = await chrome.runtime.sendMessage({
+      const response = await browserApi.runtime.sendMessage({
         type: "FETCH_CF_STATS",
         handle: settings.codeforcesHandle,
       });

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from "react";
+import { browserApi } from "../../platform/browser";
 import Button from "../components/Button";
 import Stepper from "../components/Stepper";
 import Input from "../components/Input";
@@ -57,7 +58,7 @@ export default function RepositorySetupScreen({ onNext, onBack }: Props) {
     debounceRef.current = setTimeout(async () => {
       setValidating(true);
       try {
-        const response = await chrome.runtime.sendMessage({
+        const response = await browserApi.runtime.sendMessage({
           type: "VALIDATE_REPO",
           repo: `${parsed.owner}/${parsed.repo}`,
         });

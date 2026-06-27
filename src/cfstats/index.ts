@@ -1,3 +1,5 @@
+import { browserApi } from "../platform/browser";
+
 export interface CfStats {
   totalSubmissions: number;
   accepted: number;
@@ -30,7 +32,7 @@ interface CacheEntry {
 const inflightRequests = new Map<string, Promise<CfStats>>();
 
 async function getCached(handle: string): Promise<{ entry: CacheEntry | null; fresh: boolean }> {
-  const data = await chrome.storage.local.get(CACHE_KEY);
+  const data = await browserApi.storage.local.get(CACHE_KEY);
   const entry = (data[CACHE_KEY] as CacheEntry | undefined) ?? null;
   if (entry && entry.handle === handle && Date.now() - entry.timestamp < CACHE_TTL_MS) {
     return { entry, fresh: true };
@@ -40,7 +42,7 @@ async function getCached(handle: string): Promise<{ entry: CacheEntry | null; fr
 
 async function setCached(handle: string, stats: CfStats): Promise<void> {
   const entry: CacheEntry = { handle, stats, timestamp: Date.now() };
-  await chrome.storage.local.set({ [CACHE_KEY]: entry });
+  await browserApi.storage.local.set({ [CACHE_KEY]: entry });
 }
 
 interface StatusSubmission {
