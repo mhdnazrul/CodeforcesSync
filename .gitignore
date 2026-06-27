@@ -1,3 +1,29 @@
+# Node.js
+node_modules
+
+# Build Output
+dist
+dist-ssr
+build
+
+# Release Artifacts
+CodeforcesSync-*.zip
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage / Lint Cache
+coverage
+.eslintcache
+
 # Logs
 logs
 *.log
@@ -7,26 +33,26 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-build
-# Editor directories and files
+# OS Files
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# IDE / Editors
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
-build_error.txt
-.env
-# remove documents folder
-docs/Roadmap.md
-docs/phases/
-docs/AMS.md
 
-public/UI
+# Temporary Files
+*.sw?
+*.bak
+*.orig
+*~
+*docs/phases/
+docs/AMS.md
+docs/Roadmap.md
