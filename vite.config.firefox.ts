@@ -16,6 +16,6 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    crx({ manifest }),
+    crx({ manifest, browser: "firefox" }),
   ],
 })
