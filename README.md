@@ -16,6 +16,23 @@
 
 ---
 
+## Quick Start
+
+```bash
+# 1. Download the latest release
+#    https://github.com/mhdnazrul/CodeforcesSync/releases
+
+# 2. Extract the ZIP and load it in your browser
+#    chrome://extensions → Developer mode → Load unpacked
+
+# 3. Open the extension → connect GitHub → enter Codeforces handle → link repo
+# 4. Solve a problem on Codeforces — it appears on GitHub within 1 minute
+```
+
+> No manual copying, no manual committing. The extension runs in the background.
+
+---
+
 ## Overview
 
 **CodeforcesSync** is a Chrome extension for competitive programmers. It bridges your Codeforces solving activity with your GitHub profile by automatically detecting accepted ("Accepted") verdicts and pushing the source code to a repository of your choice.
