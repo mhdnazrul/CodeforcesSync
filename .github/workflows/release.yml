@@ -23,8 +23,8 @@
 # Permissions
 # ─────────────
 #   contents: write          — create the GitHub Release and upload ZIP assets
-#   pull-requests: read      — required by gh release --generate-notes to read
-#                              merged PR titles for auto-generated release notes
+#   pull-requests: read      — required by generate-notes API to read merged
+#                              PR titles for auto-generated release notes
 #
 # Jobs
 # ─────
@@ -146,13 +146,37 @@ jobs:
           ls -lh "CodeforcesSync-Edge-${{ env.VERSION }}.zip"
           ls -lh "CodeforcesSync-Firefox-${{ env.VERSION }}.zip"
 
+      - name: Generate release body
+        run: |
+          RELEASE_DATE=$(date -u +"%Y-%m-%d")
+          echo "RELEASE_DATE=$RELEASE_DATE" >> "$GITHUB_ENV"
+
+          gh api \
+            repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name="${{ github.ref_name }}" \
+            --jq '.body' > generated-notes.md
+
+          node -e "
+            const fs = require('fs');
+            const template = fs.readFileSync('.github/release-template.md', 'utf8');
+            const generated = fs.readFileSync('generated-notes.md', 'utf8');
+            const body = template
+              .replace(/\$\{VERSION\}/g, process.env.VERSION)
+              .replace(/\$\{RELEASE_DATE\}/g, process.env.RELEASE_DATE)
+              .replace(/\$\{REPOSITORY\}/g, process.env.GITHUB_REPOSITORY)
+              + '\n\n---\n\n## 📋 Automated Changelog\n\n' + generated;
+            fs.writeFileSync('release-body.md', body);
+          "
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub Release
         run: |
           gh release create "${{ github.ref_name }}" \
             "CodeforcesSync-Chrome-${{ env.VERSION }}.zip" \
             "CodeforcesSync-Edge-${{ env.VERSION }}.zip" \
             "CodeforcesSync-Firefox-${{ env.VERSION }}.zip" \
-            --generate-notes \
+            --notes-file release-body.md \
             --title "CodeforcesSync ${{ github.ref_name }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
